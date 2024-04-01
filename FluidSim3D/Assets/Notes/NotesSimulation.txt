@@ -1,0 +1,11 @@
+SPH SIM INFORMATION:
+
+When increasing time step size, make sure to also lower the look ahead factor (for better simulation stability)
+
+-- Strain test (w unoptimised GPU memory usage and performance) --
+ - Maximum allowed particle count without dispatch grouping: 1000000<
+ - Required dedicated GPU memory: ~1.2 GB
+ - Framerate (with inter-particle springs): 55FPS (-> 165 simulation steps)
+ - Simulation steps per frame: 3 steps
+
+Dispatch size issue could be avoided by splitting the processing the buffer(s) into groups

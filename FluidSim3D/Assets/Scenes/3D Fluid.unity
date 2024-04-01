@@ -123,6 +123,77 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &473926884
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 473926886}
+  - component: {fileID: 473926887}
+  - component: {fileID: 473926888}
+  m_Layer: 0
+  m_Name: Texture Creator
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &473926886
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 473926884}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &473926887
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 473926884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8ac43707295eda34b81f8fe692108086, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  NoiseResolution:
+    x: 512
+    y: 512
+    z: 256
+  NoiseCellSize: 128
+  LerpFactor: 0.15
+  inputB: 3
+  NoisePixelSize: 0.7
+  RenderNoiseTextures: 1
+  ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
+  rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
+  textureHelper: {fileID: 473926888}
+--- !u!114 &473926888
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 473926884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a9dbe08b0faf904dac4a9b0e06fec73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
+  tcShader: {fileID: 7200000, guid: 1c33888bc73880446ae6bb14a90e5ffd, type: 3}
 --- !u!1 &868168745
 GameObject:
   m_ObjectHideFlags: 0
@@ -132,10 +203,12 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 868168748}
+  - component: {fileID: 868168749}
+  - component: {fileID: 868168750}
   - component: {fileID: 868168747}
   - component: {fileID: 868168746}
   m_Layer: 0
-  m_Name: Main Camera
+  m_Name: Renderer
   m_TagString: MainCamera
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -209,14 +282,203 @@ Transform:
   m_GameObject: {fileID: 868168745}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1, z: -10}
+  m_LocalPosition: {x: 0, y: -3.6, z: -9.28}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &868168749
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 868168745}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4931dbbf0e8d469468045a57e5273257, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fieldOfView: 70
+  Resolution:
+    x: 1920
+    y: 1080
+  MaxStepCount: 60
+  RaysPerPixel: 2
+  HitThreshold: 0.01
+  ScatterProbability: 1
+  DefocusStrength: 0
+  focalPlaneFactor: 16.7
+  MaxStepSize: 0.15
+  FrameCount: 0
+  ChunksPerObject: 50
+  MinWorldBounds:
+    x: -40
+    y: -40
+    z: -40
+  MaxWorldBounds:
+    x: 40
+    y: 40
+    z: 40
+  CellSize: 1
+  RenderTris: 1
+  OBJ_Pos:
+    x: 0
+    y: 0
+    z: 14.75
+  OBJ_Rot:
+    x: 0.83
+    y: -0.43
+    z: 5.63
+  SpheresInput:
+  - x: 1
+    y: 1
+    z: 1
+    w: 1.8
+  MatTypesInput1:
+  - x: 0
+    y: 4.35
+    z: -1.02
+    w: 0
+  MatTypesInput2:
+  - x: 0
+    y: 0
+    z: 0
+    w: 0
+  rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
+  pcShader: {fileID: 7200000, guid: 8b6e58497c2f7da409da1927d115d6dc, type: 3}
+  ssShader: {fileID: 7200000, guid: 9af24f6caf8c76746826234ef1d4552b, type: 3}
+  ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
+  shaderHelper: {fileID: 868168750}
+  textureCreator: {fileID: 473926887}
+  LoadOBJMesh: {fileID: -2432090755550338912, guid: cbfc12edff426ee4ca1fef259989a787, type: 3}
+--- !u!114 &868168750
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 868168745}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7d1d4d412bc66f43a58caebe8941245, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  render: {fileID: 868168749}
+  texture: {fileID: 473926887}
+  th: {fileID: 473926888}
+--- !u!1 &2125271846
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2125271847}
+  - component: {fileID: 2125271849}
+  - component: {fileID: 2125271848}
+  m_Layer: 0
+  m_Name: Simulation
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2125271847
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125271846}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2125271848
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125271846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bdd3ea57ca30187408980f1d2503a2bf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sim: {fileID: 2125271849}
+--- !u!114 &2125271849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125271846}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c4e01cbd809e59f4e9d22e12742b644e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ParticlesNum: 30000
+  MaxInfluenceRadius: 2
+  TargetDensity: 2
+  PressureMultiplier: 3000
+  NearPressureMultiplier: 12
+  Damping: 0.7
+  PassiveDamping: 0
+  RbElasticity: 0.645
+  LookAheadFactor: 0.017
+  StateThresholdPadding: 3
+  Viscosity: 1.5
+  SpringStiffness: 5
+  TolDeformation: 0
+  Plasticity: 3
+  Gravity: 5
+  RbPStickyRadius: 2
+  RbPStickyness: 1
+  MaxChunkSearchSafety: 1
+  StickynessCapacitySafety: 0.5
+  SpringCapacitySafety: 150
+  TriStorageLength: 4
+  Width: 300
+  Height: 200
+  SpawnDims: 160
+  BorderPadding: 4
+  FixedTimeStep: 1
+  RenderMarchingSquares: 0
+  TimeStep: 0.02
+  ProgramSpeed: 2
+  VisualParticleRadii: 0.4
+  RBRenderThickness: 0.5
+  TimeStepsPerRender: 3
+  MSvalMin: 0.41
+  Resolution:
+    x: 1920
+    y: 1280
+  MSResolution: 3
+  MarchW: 100
+  MarchH: 66
+  MaxInteractionRadius: 40
+  InteractionAttractionPower: 3.5
+  InteractionFountainPower: 0
+  InteractionTemperaturePower: 0
+  shaderHelper: {fileID: 2125271848}
+  renderShader: {fileID: 0}
+  pSimShader: {fileID: 0}
+  rbSimShader: {fileID: 0}
+  sortShader: {fileID: 0}
+  marchingSquaresShader: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
   - {fileID: 868168748}
+  - {fileID: 2125271847}
+  - {fileID: 473926886}

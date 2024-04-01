@@ -1,0 +1,12 @@
+Liquid render pipeline:
+
+1. Simulate liquid step(s)
+
+2-a. Generate liquid isosurface (triangle) mesh
+2-b. Copy particle sphere positions into rendered spheres buffer
+
+3. Render with ray marching shader
+
+-----------------------------------------
+
+iso-surface mesh would probably render faster, but requires an extra step

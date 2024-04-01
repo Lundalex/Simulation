@@ -1,0 +1,346 @@
+// Ray marching
+#pragma kernel TraceRays // 0
+// Render noise textures
+#pragma kernel RenderNoiseTextures // 1
+
+#include "RendererResources.hlsl"
+
+const float MaxStepSize;
+
+// Num constants
+const uint4 NumChunks; // x, y, z, x*y
+const uint NumTriObjects;
+const uint NumTris;
+const uint NumSpheres;
+const uint NumObjects; // NumSpheres + NumTris
+const uint NumMaterials;
+
+// Ray setup settings
+const int MaxStepCount;
+const int RaysPerPixel;
+
+const float HitThreshold;
+
+const float ScatterProbability;
+const float DefocusStrength;
+
+// World settings
+const float CellSize;
+const float3 MinWorldBounds;
+const float3 MaxWorldBounds;
+const float3 ChunkGridOffset;
+
+// View settings
+const uint2 Resolution;
+const float viewSpaceWidth;
+const float viewSpaceHeight;
+const float focalPlaneFactor;
+
+// Noise settings
+const uint3 NoiseResolution;
+const float NoisePixelSize;
+
+// Camera orientation
+const float3 WorldSpaceCameraPos;
+const float3 CameraRotation;
+
+// Camera transform matrix
+const float3x3 CameraTransform;
+
+// Per frame
+const uint FrameRand; // "random" value from 0 to 999999, gets reset each frame
+const uint FrameCount; // Each frame: FrameCount++
+
+// Shader specific structs
+struct Ray
+{
+    float3 origin;
+    float3 pos;
+    float3 dir;
+};
+struct ScanInfo
+{
+    float nearDst;
+    float3 normal;
+    int materialKey;
+};
+struct TraceInfo
+{
+    float3 rayColor;
+    float3 incomingLight;
+};
+
+// Shader input structs
+struct TriObject
+{
+    float3 pos;
+    float3 rot;
+    float3 lastRot;
+    float containedRadius;
+    int triStart;
+    int triEnd;
+};
+struct Tri // Triangle
+{
+    float3 vA;
+    float3 vB;
+    float3 vC;
+    float3 normal;
+    int materialKey;
+    int parentKey;
+};
+struct Sphere
+{
+    float3 pos;
+    float radius;
+    int materialKey;
+};
+struct Material2
+{
+    float3 color;
+    float3 specularColor;
+    float brightness;
+    float smoothness;
+};
+
+// Shader input buffers
+RWStructuredBuffer<Material2> Materials;
+RWStructuredBuffer<TriObject> TriObjects;
+RWStructuredBuffer<Tri> Tris;
+RWStructuredBuffer<Sphere> Spheres;
+
+RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
+RWStructuredBuffer<int> StartIndices;
+
+// Shader output buffer
+RWTexture2D<float4> Result; // abc: rgb, d: opacity
+
+RWTexture3D<float> NoiseA;
+RWTexture3D<float> NoiseB;
+
+bool IsOutsideBounds(float3 point2)
+{
+    if (MinWorldBounds.x > point2.x
+     || MinWorldBounds.y > point2.y
+     || MinWorldBounds.z > point2.z
+     || MaxWorldBounds.x < point2.x
+     || MaxWorldBounds.y < point2.y
+     || MaxWorldBounds.z < point2.z) { return true; }
+    return false;
+}
+
+uint GetChunkKey(uint3 chunk)
+{
+    return chunk.x + chunk.y*NumChunks.x + chunk.z*NumChunks.w;
+}
+
+float3 ApplyCameraTransform(float3 point2)
+{
+    return mul(CameraTransform, point2);
+}
+
+float SphereSgnDst (float3 point2, Sphere sphere)
+{
+    float3 localCentrePos = sphere.pos - point2;
+    float sgnDst = length(localCentrePos) - sphere.radius;
+
+    return sgnDst;
+}
+
+float TriDstSqr( float3 p, float3 a, float3 b, float3 c )
+{
+  float3 ba = b - a; float3 pa = p - a;
+  float3 cb = c - b; float3 pb = p - b;
+  float3 ac = a - c; float3 pc = p - c;
+  float3 nor = cross( ba, ac );
+
+  return (sign(dot(cross(ba,nor),pa)) +
+         sign(dot(cross(cb,nor),pb)) +
+         sign(dot(cross(ac,nor),pc))<2.0)
+         ?
+         min( min(
+         dot2(ba*clamp(dot(ba,pa)/dot2(ba),0.0,1.0)-pa),
+         dot2(cb*clamp(dot(cb,pb)/dot2(cb),0.0,1.0)-pb) ),
+         dot2(ac*clamp(dot(ac,pc)/dot2(ac),0.0,1.0)-pc) )
+         :
+         dot(nor,pa)*dot(nor,pa)/dot2(nor);
+}
+
+ScanInfo Scan (Ray ray, inout int rngState)
+{
+    float nearDstSqr = MaxStepSize;
+    int materialKey = -1;
+    float3 normal = float3(0.0, 0.0, 0.0);
+
+    float3 offsetRayPos = ray.pos + ChunkGridOffset;
+    uint3 chunk = uint3(offsetRayPos / CellSize);
+
+    uint chunkKey = GetChunkKey(chunk);
+    uint startIndex = StartIndices[chunkKey];
+
+    uint Index = startIndex;
+    while (Index != -1 && chunkKey == SpatialLookup[Index].y)
+    {
+        uint objectIndex = SpatialLookup[Index].x;
+
+        if (objectIndex < NumSpheres)
+        {
+            // Calculate distance to sphere
+            Sphere sphere = Spheres[objectIndex];
+
+            float sgnDstSqr = sqr(SphereSgnDst(ray.pos, sphere));
+
+            if (sgnDstSqr < nearDstSqr)
+            {
+                nearDstSqr = sgnDstSqr;
+                materialKey = sphere.materialKey;
+                normal = normalize(ray.pos - sphere.pos);
+            }
+        }
+        else
+        {
+            // Calculate distance to tri
+            int triIndex = objectIndex - NumSpheres;
+            Tri tri = Tris[triIndex];
+            
+            float3 localRayPos = ray.pos - TriObjects[tri.parentKey].pos;
+            float dstSqr = TriDstSqr(localRayPos, tri.vA, tri.vB, tri.vC);
+
+            if (dstSqr < nearDstSqr)
+            {
+                nearDstSqr = dstSqr;
+                materialKey = tri.materialKey;
+                normal = tri.normal;
+            }
+        }
+
+        Index += 1;
+    }
+
+    float nearDst = sqrt(nearDstSqr);
+
+    ScanInfo scanInfo;
+    scanInfo.nearDst = nearDst;
+    scanInfo.normal = normal;
+    scanInfo.materialKey = materialKey;
+
+    return scanInfo;
+}
+
+TraceInfo Trace (Ray ray, inout int rngState)
+{
+    TraceInfo traceInfo;
+    traceInfo.rayColor = 1; // Default color is (1, 1, 1) (white)
+    traceInfo.incomingLight = 0; // Default incoming light is (0, 0, 0) (black)
+
+    // Traverse through scene
+    for (int stepCount = 0; stepCount < MaxStepCount; stepCount++)
+    {
+        ScanInfo scanInfo = Scan(ray, rngState);
+
+        // March by nearest dst length
+        ray.pos += scanInfo.nearDst * ray.dir;
+        if (IsOutsideBounds(ray.pos)) { return traceInfo; }
+
+        // Hit?
+        if (scanInfo.nearDst < HitThreshold)
+        {
+            Material2 material = Materials[scanInfo.materialKey];
+            
+            ray.pos -= (0.02 + scanInfo.nearDst) * ray.dir; // Revert last ray march step + epsilon offset
+
+            // Calculate new ray origin
+            ray.origin = ray.pos;
+
+            // Calculate new ray direction
+            // isSpecularBounce == False -> ray.dir = scatterDir
+            // isSpecularBounce == True -> ray.dir = norm(lerp(scatterDir, specularDir, material.smoothness))
+            bool isSpecularBounce = ScatterProbability < randNormalized(rngState);
+            // Cosine weighted randPointOnUnitSphere. This removes the need for any "light spread" calculations
+            float3 scatterDir = normalize(scanInfo.normal + randPointOnUnitSphere(rngState));
+            float3 specularDir = reflect(ray.dir, scanInfo.normal);
+            ray.dir = normalize(lerp(scatterDir, specularDir, material.smoothness * isSpecularBounce));
+
+            // Validate ray direction
+            if (dot(scanInfo.normal, ray.dir) < 0)
+            {
+                ray.dir = -ray.dir;
+            }
+
+            // Calculate new traceInfo values
+            float3 emittedLight = material.color * material.brightness;
+            traceInfo.incomingLight += emittedLight * traceInfo.rayColor;
+            traceInfo.rayColor *= lerp(material.color, material.specularColor, isSpecularBounce);
+        }
+    }
+
+    return traceInfo;
+}
+
+[numthreads(TN_RM,TN_RM,1)]
+void TraceRays (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)Resolution.x || id.y >= (uint)Resolution.y) { return; }
+    uint rngState = id.y * Resolution.x + id.x + FrameRand;
+
+    // Calculate focal plane world position for the given pixel
+    float2 focalPos = (float2(id.xy) / Resolution - 0.5) * 2.0 * float2(viewSpaceWidth, viewSpaceHeight);
+    float3 focalPosScaled = float3(focalPos.x, focalPos.y, 1) * focalPlaneFactor;
+    float3 worldFocalPos = ApplyCameraTransform(focalPosScaled) + WorldSpaceCameraPos;
+
+    // Trace ray(s) through the scene
+    TraceInfo combinedTraceInfo;
+    for (int i = 0; i < RaysPerPixel; i++)
+    {
+        // Initial ray setup
+        float3 jitter = ApplyCameraTransform(float3(randPointInCircle(rngState) * DefocusStrength, 0));
+        Ray ray;
+        ray.origin = WorldSpaceCameraPos + jitter * focalPlaneFactor;
+        ray.pos = ray.origin;
+        ray.dir = normalize(worldFocalPos - ray.origin);
+
+        // Trace ray
+        TraceInfo traceInfo = Trace(ray, rngState);
+
+        // Record traceInfo
+        combinedTraceInfo.incomingLight += traceInfo.incomingLight;
+    }
+    combinedTraceInfo.incomingLight /= float(RaysPerPixel);
+
+    // Combine prev frame with current frame. Weight the contributions to result in an average over all frames - DOESN'T WORK NOW FOR SOME REASON
+    float3 col = combinedTraceInfo.incomingLight;
+    // float3 colPrev = float3(Result[id.xy].x, Result[id.xy].y, Result[id.xy].z);
+
+    // float weight = 1.0 / (FrameCount + 1);
+
+    // float3 accumulatedCol = saturate(colPrev * (1 - weight) + col * weight);
+    // Result[id.xy] = float4(accumulatedCol.x, accumulatedCol.y, accumulatedCol.z, 0);
+
+    Result[id.xy] = float4(col.x, col.y, col.z, 0);
+}
+
+[numthreads(TN_RM,TN_RM,1)]
+void RenderNoiseTextures (uint3 id : SV_DispatchThreadID)
+{
+    // Render NoiseA or NoiseB
+
+    float pS = NoisePixelSize; // pixelSize
+    pS = max(pS, 0.1);
+    uint2 scaledID = id.xy % pS + id.xy / pS;
+
+    uint2 idW = scaledID % NoiseResolution.xy;
+    if (idW.x == 0 && id.x != 0) { return; }
+
+    float result;
+    result = scaledID.x > NoiseResolution.x
+    ? NoiseB[uint3(idW.x % pS + idW.x / pS, idW.y % pS + idW.y / pS, (uint)FrameCount % NoiseResolution.z)]
+    : NoiseA[uint3(idW.x % pS + idW.x / pS, idW.y % pS + idW.y / pS, (uint)FrameCount % NoiseResolution.z)];
+
+    if (scaledID.x < 2*NoiseResolution.x && scaledID.y < NoiseResolution.y && result > 0.0)
+    {
+        Result[id.xy] = float4(result, result, result, 0);
+        return;
+    }
+    // Override ray marcher render?
+    // Result[id.xy] = float4(0, 0, 0, 0);
+}

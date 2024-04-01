@@ -1,0 +1,73 @@
+#pragma kernel CalcTriNormals // 0
+#pragma kernel SetLastRotations // 1
+
+#include "RendererResources.hlsl"
+
+const uint NumTris;
+const uint NumTriObjects;
+
+// Shader input structs
+struct Tri // Triangle
+{
+    float3 vA;
+    float3 vB;
+    float3 vC;
+    float3 normal;
+    int materialKey;
+    int parentKey;
+};
+struct TriObject
+{
+    float3 pos;
+    float3 rot;
+    float3 lastRot;
+    float containedRadius;
+    int triStart;
+    int triEnd;
+};
+
+RWStructuredBuffer<Tri> Tris;
+RWStructuredBuffer<TriObject> TriObjects;
+
+float3 GetPlaneNormal (float3 a, float3 b, float3 c)
+{
+    float3 ab = b - a;
+    float3 ac = c - a;
+
+    return normalize(cross(ab, ac));
+}
+
+// Tri normals only calculated one side of each Tri
+[numthreads(TN_PC,1,1)]
+void CalcTriNormals (uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= NumTris) { return; }
+
+    Tri tri = Tris[i];
+    TriObject parent = TriObjects[tri.parentKey];
+
+    if (dot2(parent.rot - parent.lastRot) > 0)
+    {
+        float3 rotDiff = parent.rot - parent.lastRot;
+        ApplyTransformTriVertices(rotDiff, tri.vA, tri.vB, tri.vC);
+
+        tri.normal = GetPlaneNormal(tri.vA, tri.vB, tri.vC);
+
+        Tris[i] = tri;
+    }
+}
+
+[numthreads(TN_PC,1,1)]
+void SetLastRotations (uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= NumTriObjects) { return; }
+
+    TriObject triObject = TriObjects[i];
+
+    if (dot2(triObject.rot - triObject.lastRot) > 0)
+    {
+        TriObjects[i].lastRot = triObject.rot;
+    }
+}

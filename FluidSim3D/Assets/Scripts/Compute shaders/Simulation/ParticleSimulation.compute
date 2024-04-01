@@ -1,0 +1,671 @@
+#pragma kernel PreCalculations // 0
+#pragma kernel CalculateDensities // 1
+#pragma kernel PrepSpringData // 2
+#pragma kernel TransferAllSpringData // 3
+#pragma kernel ParticleForces // 4
+#pragma kernel UpdatePositions // 5
+#pragma kernel ConsumeStickynessRequests // 6
+
+#include "SimulationResources.hlsl"
+#include "CompositionResources.hlsl"
+
+// Constants
+const int2 ChunksNum;
+const int ParticlesNum;
+const int Width;
+const int Height;
+const int ParticleSpringsCombinedHalfLength;
+const int MaxInfluenceRadius;
+const int MaxInfluenceRadiusSqr;
+const float InvMaxInfluenceRadius;
+const int SpawnDims;
+const int TimeStepsPerRender;
+
+const float LookAheadFactor;
+const float StateThresholdPadding;
+const float BorderPadding;
+const float MaxInteractionRadius;
+
+const float InteractionAttractionPower;
+const float InteractionFountainPower;
+const float InteractionTemperaturePower;
+
+// Per-timestep-set constants
+const float DeltaTime;
+const float SRDeltaTime;
+const bool TransferSpringData;
+
+const float MouseX;
+const float MouseY;
+const bool RMousePressed;
+const bool LMousePressed;
+
+// Particles - Buffers
+RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
+RWStructuredBuffer<int> StartIndices;
+
+struct SpringStruct
+{
+    int PLinkedA;
+    int PLinkedB;
+    float RestLength;
+};
+RWStructuredBuffer<SpringStruct> ParticleSpringsCombined; // Buffer_A / Buffer_B
+
+const bool FrameBufferCycle;
+RWStructuredBuffer<int> ChunkSizes;
+RWStructuredBuffer<int2> SpringCapacities; // [](baseChunkCapacity, neighboorChunksCapacity)
+RWStructuredBuffer<int> SpringStartIndices_dbA; // Result A
+RWStructuredBuffer<int> SpringStartIndices_dbB; // Result B
+
+struct PTypeStruct
+{
+    int FluidSpringsGroup;
+
+    float SpringPlasticity;
+    float SpringTolDeformation;
+    float SpringStiffness;
+
+    float ThermalConductivity;
+    float SpecificHeatCapacity;
+    float FreezeThreshold;
+    float VaporizeThreshold;
+
+    float Pressure;
+    float NearPressure;
+
+    float Mass;
+    float TargetDensity;
+    float Damping;
+    float PassiveDamping;
+    float Viscosity;
+    float Stickyness;
+    float Gravity;
+
+    float InfluenceRadius;
+    float colorG;
+};
+RWStructuredBuffer<PTypeStruct> PTypes;
+
+struct PDataStruct
+{
+    float2 PredPosition;
+    float2 Position;
+    float2 Velocity;
+    float2 LastVelocity;
+    float Density;
+    float NearDensity;
+    float Temperature; // kelvin
+    float TemperatureExchangeBuffer;
+    int LastChunkKey_PType_POrder; // composed 3 int structure
+    // POrder is dynamic, 
+    // 0 <= LastChunkKey <= ChunkNum
+    // 0 <= PType <= PTypesNum
+};
+RWStructuredBuffer<PDataStruct> PData;
+
+struct StickynessRequestStruct
+{
+    int pIndex;
+    int StickyLineIndex;
+    float2 StickyLineDst;
+    float absDstToLineSqr;
+    float RBStickyness;
+    float RBStickynessRange;
+};
+RWStructuredBuffer<StickynessRequestStruct> SortedStickyRequests;
+
+bool ValidChunk(int ChunkX, int ChunkY)
+{
+    return ChunkX >= 0 && ChunkX < ChunksNum.x && ChunkY >= 0 && ChunkY < ChunksNum.y;
+}
+
+int GetChunkKey(int chunkX, int chunkY)
+{
+    return chunkY * ChunksNum.x + chunkX;
+}
+
+float2 CalcDensity(int pIndex) // (density, nearDensity)
+{
+    PDataStruct PData_i = PData[pIndex];
+    float InfluenceRadius_i = PTypes[Extract_PType(PData_i.LastChunkKey_PType_POrder)].InfluenceRadius;
+
+    if (TransferSpringData)
+    {
+        int newChunkX = (int)(PData_i.Position.x * InvMaxInfluenceRadius);
+        int newChunkY = (int)(PData_i.Position.y * InvMaxInfluenceRadius);
+        int newChunkKey = GetChunkKey(newChunkX, newChunkY);
+        Set_LastChunkKey(PData_i.LastChunkKey_PType_POrder, newChunkKey);
+        PData[pIndex].LastChunkKey_PType_POrder = PData_i.LastChunkKey_PType_POrder;
+    }
+
+    int lastChunkKey = Extract_LastChunkKey(PData_i.LastChunkKey_PType_POrder);
+
+    int chunkX = (uint)lastChunkKey % ChunksNum.x;
+    int chunkY = (int)((uint)lastChunkKey / ChunksNum.x);
+
+    float totDensity = 0.0;
+    float totNearDensity = 0.0;
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            int curChunkX = chunkX + x;
+            int curChunkY = chunkY + y;
+
+            if (!ValidChunk(curChunkX, curChunkY)) {continue;}
+
+            int chunkKey = GetChunkKey(curChunkX, curChunkY);
+            int startIndex = StartIndices[chunkKey];
+
+            int Index = startIndex;
+            while (Index < ParticlesNum && chunkKey == SpatialLookup[Index].y)
+            {
+                int otherPIndex = SpatialLookup[Index].x;
+                PTypeStruct PType_otherPIndex = PTypes[Extract_PType(PData[otherPIndex].LastChunkKey_PType_POrder)];
+
+
+                // -- Spring handling --
+
+                if (TransferSpringData)
+                {
+                    if (x == 0 && y == 0)
+                    {
+                        if (pIndex == otherPIndex)
+                        {
+                            int pOrder = Index - startIndex;
+                            Set_POrder(PData_i.LastChunkKey_PType_POrder, pOrder);
+                            PData[pIndex].LastChunkKey_PType_POrder = PData_i.LastChunkKey_PType_POrder;
+                        }
+                    }
+                }
+
+                float avgInfluenceRadius = avg(InfluenceRadius_i, PType_otherPIndex.InfluenceRadius);
+
+                // -- Calculate densities --
+
+                float dst = length(PData_i.PredPosition - PData[otherPIndex].PredPosition);
+                totDensity += PType_otherPIndex.Mass * SmoothLiquid_optimised(dst, avgInfluenceRadius);
+                totNearDensity += PType_otherPIndex.Mass * SmoothLiquidNear_optimised(dst, avgInfluenceRadius);
+
+                // -- Increment Index each iteration - Chunk particle search algorithm --
+
+                Index += 1;
+            }
+        }
+    }
+
+    // // density ∝ temperature
+    // float tempCoefficient = 0.0033 * PData_i.Temperature;
+
+    return float2(totDensity, totNearDensity);
+}
+
+float4 BoundraryCheck(float2 pos, float2 vel, float extraPadding, float Damping)
+{
+    float totPadding = BorderPadding + extraPadding;
+    float velFactor = 1 - Damping;
+
+    // x
+    if (pos.x > Width - totPadding)
+    {
+        vel.x = -abs(vel.x) * velFactor;
+        pos.x = Width - totPadding;
+    } else if (pos.x < totPadding) {
+        vel.x = abs(vel.x) * velFactor;
+        pos.x = totPadding;
+    }
+
+    // y
+    if (pos.y > Height - totPadding)
+    {
+        vel.y = -abs(vel.y) * velFactor;
+        pos.y = Height - totPadding;
+    } else if (pos.y < totPadding) {
+        vel.y = abs(vel.y) * velFactor;
+        pos.y = totPadding;
+    }
+    
+    return float4(pos.x, pos.y, vel.x, vel.y);
+}
+
+float DensityToPressure(float density, float targetDensity, float pressure)
+{
+    float densityError = density - targetDensity;
+    float Pressure = densityError * pressure;
+    return Pressure;
+}
+
+float SharedPressure(float densityA, float densityB, float targetDensityA, float targetDensityB, float pressureA, float pressureB)
+{
+    float PressureA = DensityToPressure(densityA, targetDensityA, pressureA);
+    float PressureB = DensityToPressure(densityB, targetDensityB, pressureB);
+    float sharedPressure = avg(PressureA, PressureB);
+
+    return sharedPressure;
+}
+
+float SharedNearPressure(float nearDensityA, float nearDensityB, float nearPressureMultiplierA, float nearPressureMultiplierB)
+{
+    float nearPressureA = nearDensityA * nearPressureMultiplierA;
+    float nearPressureB = nearDensityB * nearPressureMultiplierB;
+    float sharedNearPressure = avg(nearPressureA, nearPressureB);
+
+    return sharedNearPressure;
+}
+
+float2 PressureForce(float densityA, float densityB, float nearDensityA, float nearDensityB, PTypeStruct PType_i, PTypeStruct PType_otherPIndex, float absDst, float avgInfluenceRadius, float2 normDst, int randSeed)
+{
+    float absPressureGradient = SmoothLiquidDer_optimised(absDst, avgInfluenceRadius);
+    float absNearPressureGradient = SmoothLiquidNearDer_optimised(absDst, avgInfluenceRadius);
+
+    float2 pressureGradient = float2(0.0, 0.0);
+    float2 nearPressureGradient = float2(0.0, 0.0);
+
+    if (absDst == 0) {
+        // semirandom direction, not normalized
+        float2 randVector = float2(randSeed % 0.28, randSeed % 0.18);
+
+        pressureGradient = 0.05 * randVector * absPressureGradient;
+        nearPressureGradient = 0.05 * randVector * absNearPressureGradient;
+    }
+    else {
+        pressureGradient = normDst * absPressureGradient;
+        nearPressureGradient = normDst * absNearPressureGradient;
+    }
+
+    float avgPressure = SharedPressure(densityA, densityB, PType_i.TargetDensity, PType_otherPIndex.TargetDensity, PType_i.Pressure, PType_otherPIndex.Pressure);
+
+    float avgNearPressure = SharedNearPressure(nearDensityA, nearDensityB, PType_i.NearPressure, PType_otherPIndex.NearPressure);
+
+    if (densityA + densityB == 0) {return float2(0.0, 0.0);}
+    float2 pressureForce = (avgPressure * pressureGradient + avgNearPressure * nearPressureGradient) / avg(densityA, densityB);
+
+    return pressureForce;
+}
+
+float2 ViscocityForce(float2 lastVelocityA, float2 lastVelocityB, PTypeStruct PType_i, PTypeStruct PType_otherPIndex, float viscocityLaplacian)
+{
+    float2 viscocityForce = viscocityLaplacian * (lastVelocityB - lastVelocityA);
+
+    return viscocityForce * avg(PType_i.Viscosity, PType_otherPIndex.Viscosity);
+}
+
+float3 InteractionEffects(int pIndex)
+{
+    if (!LMousePressed && !RMousePressed) { return float3(0.0, 0.0, 0.0); }
+    int dir = 0;
+    if (LMousePressed) {dir = -1;}
+    else if (RMousePressed) {dir = 1;}
+
+    float2 dst = PData[pIndex].PredPosition - float2(MouseX, MouseY);
+
+    float absDst = length(dst);
+
+    if (absDst > MaxInteractionRadius) {return float3(0.0, 0.0, 0.0);}
+
+    float absInteractionGradient = InteractionInfluence_optimised(absDst, MaxInteractionRadius);
+
+    float TemperatureEffect = -dir * InteractionTemperaturePower;
+    if (absDst == 0) {return float3(0.0, 0.0, TemperatureEffect);}
+
+    float2 interactionGradient = normalize(dst) * absInteractionGradient;
+
+    float2 baseInteractionForce = interactionGradient * InteractionAttractionPower * dir;
+    float fountainInteractionForce = 0;
+    if (dir == -1)
+    {
+        float dstX = MaxInteractionRadius - abs(dst.x);
+        fountainInteractionForce = InteractionFountainPower * absInteractionGradient * dstX;
+    }
+
+    float2 interactionForce = baseInteractionForce + float2(0.0, fountainInteractionForce);
+
+    return float3(interactionForce.x, interactionForce.y, TemperatureEffect);
+}
+
+float2 StickynessForce(PDataStruct PData_i, PTypeStruct PType_i, StickynessRequestStruct stickynessRequest)
+{
+    float absDstToLine = sqrt(stickynessRequest.absDstToLineSqr);
+
+    float Stickyness = stickynessRequest.RBStickyness * PType_i.Stickyness;
+    float absStickynessForce = RBPStickynessModel(Stickyness, absDstToLine, stickynessRequest.RBStickynessRange);
+
+    // If the lenSqr of a vector is 0, normalized(0) does a /0 operation, leading to thread errors
+    // Over time, this decreases the amount of available threads, leading to decreased performance!
+    if (dot(stickynessRequest.StickyLineDst, stickynessRequest.StickyLineDst) == 0) { return float2(0, 0); }
+
+    float2 normDstToLine = normalize(stickynessRequest.StickyLineDst);
+    float2 stickynessForce = absStickynessForce * normDstToLine;
+    
+    return stickynessForce;
+}
+
+float2 LiquidSpringForce(PTypeStruct PType_i, PTypeStruct PType_otherPIndex, int pIndex, int otherPIndex, int springIndex, float absDst, float avgInfluenceRadius, float2 normDst)
+{
+    SpringStruct spring = ParticleSpringsCombined[springIndex];
+
+    // if spring is not already initialized, initialize a new one
+    if (spring.PLinkedA == -1) { spring.PLinkedA = pIndex; spring.PLinkedB = otherPIndex; spring.RestLength = avgInfluenceRadius - 0.1; }
+
+
+    // -- Modify spring and perform force calculations (plasticity, elasticity) --
+
+    // Plasticity calculations
+    float diffMng = absDst - spring.RestLength;
+    float absDiffMng = abs(diffMng);
+    int sgnDiffMng = sign(diffMng);
+    float plasticity = avg(PType_i.SpringPlasticity, PType_otherPIndex.SpringPlasticity);
+    float tolDeformation = avg(PType_i.SpringTolDeformation, PType_otherPIndex.SpringTolDeformation);
+
+    // ∆L = ∆t * α * sign(r − L) * max(0,|r − L| − γL)
+    spring.RestLength += LiquidSpringPlasticityModel(plasticity, sgnDiffMng, absDiffMng, tolDeformation, DeltaTime);
+
+    // Elasticity calculations
+    float stiffness = avg(PType_i.SpringStiffness, PType_otherPIndex.SpringStiffness);
+    float absSpringForce = LiquidSpringForceModel(stiffness, spring.RestLength, avgInfluenceRadius, absDst);
+    float2 springForce = absSpringForce * normDst;
+
+
+    // -- Write new spring data --
+
+    ParticleSpringsCombined[springIndex] = spring;
+
+
+    // -- Return calculated force --
+
+    return (isnan(springForce.x) || isnan(springForce.y)) ? float2(0.0, 0.0) : -springForce;
+}
+
+float TemperatureExchange(float viscocityLaplacian, float TemperatureA, float TemperatureB, float ThermalConductivityA, float ThermalConductivityB, float absDst, float DeltaTime)
+{
+    float temperatureDiff = TemperatureB - TemperatureA;
+    float avgThermalConductivity = avg(ThermalConductivityA, ThermalConductivityB);
+
+    return LiquidTemperatureExchangeModel(avgThermalConductivity, temperatureDiff, viscocityLaplacian, max(absDst, 0.1), DeltaTime);
+}
+
+[numthreads(TN_PS,1,1)]
+void PreCalculations (uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    if (id.x >= (uint)ParticlesNum) { return; }
+
+    PData[i].PredPosition = PData[i].Position + PData[i].Velocity * LookAheadFactor;
+
+    // Make sure PredPositions[i] is within the world boundrary
+    PData[i].PredPosition.x = clamp(PData[i].PredPosition.x, BorderPadding, Width - BorderPadding);
+    PData[i].PredPosition.y = clamp(PData[i].PredPosition.y, BorderPadding, Height - BorderPadding);
+
+    // LastVelocities
+    PData[i].LastVelocity = PData[i].Velocity;
+}
+
+[numthreads(TN_PS,1,1)]
+void CalculateDensities (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)ParticlesNum) { return; }
+    // Index from SpatialLookup to improve memory access coherency
+    int i = SpatialLookup[id.x].x;
+
+    // density
+    float2 Dns = CalcDensity(i);
+    PData[i].Density = Dns.x;
+    PData[i].NearDensity = Dns.y;
+}
+
+[numthreads(TN_PS,1,1)]
+void PrepSpringData (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)ParticleSpringsCombinedHalfLength) { return; }
+
+    int i = FrameBufferCycle
+    ? id.x + ParticleSpringsCombinedHalfLength
+    : id.x;
+
+    ParticleSpringsCombined[i].PLinkedA = -1;
+}
+
+[numthreads(TN_PS,1,1)]
+void TransferAllSpringData (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)ParticleSpringsCombinedHalfLength) { return; }
+    int i = FrameBufferCycle
+    ? id.x
+    : id.x + ParticleSpringsCombinedHalfLength;
+
+    // last -> new
+    // this is not a solution for adding springs - default spring data should be set before this shader pass
+
+    // B is connected to A
+    SpringStruct lastSpring = ParticleSpringsCombined[i];
+    if (lastSpring.PLinkedA == -1) { return; }
+    PDataStruct PData_A = PData[lastSpring.PLinkedA];
+    PDataStruct PData_B = PData[lastSpring.PLinkedB];
+
+    float2 PosDiff = PData_A.Position - PData_B.Position;
+    float absPosDiffSqr = dot(PosDiff, PosDiff);
+
+    float avgInfluenceRadiusSqr = sqr(avg(PTypes[Extract_PType(PData_A.LastChunkKey_PType_POrder)].InfluenceRadius, PTypes[Extract_PType(PData_B.LastChunkKey_PType_POrder)].InfluenceRadius));
+
+    // If A and B are in range of each other, transfer data. Otherwise, do not (spring data is deleted)
+    if (absPosDiffSqr <= MaxInfluenceRadiusSqr && absPosDiffSqr <= avgInfluenceRadiusSqr)
+    {
+        int pOrder_A = Extract_POrder(PData_A.LastChunkKey_PType_POrder);
+        int pOrder_B = Extract_POrder(PData_B.LastChunkKey_PType_POrder);
+        int lastChunkKey_A = Extract_LastChunkKey(PData_A.LastChunkKey_PType_POrder);
+        int lastChunkKey_B = Extract_LastChunkKey(PData_B.LastChunkKey_PType_POrder);
+    
+        int newChunkX_A = (uint)lastChunkKey_A % ChunksNum.x;
+        int newChunkY_A = (int)((float)lastChunkKey_A / ChunksNum.x);
+
+        int newChunkX_B = (uint)lastChunkKey_B % ChunksNum.x;
+        int newChunkY_B = (int)((float)lastChunkKey_B / ChunksNum.x);
+
+        // not optimal since the same calculations are performed by multiple threads (many springs in each chunk)
+        int localSpringBCapacityOrder = 0;
+        bool inRangeAB = false;
+        bool shouldBreak = false;
+        for (int x = -1; x <= 1 && !shouldBreak; x++)
+        {
+            int curChunkX = newChunkX_A + x;
+
+            for (int y = -1; y <= 1 && !shouldBreak; y++)
+            {
+                int curChunkY = newChunkY_A + y;
+
+                if (ValidChunk(curChunkX, curChunkY))
+                {
+                    if (curChunkX == newChunkX_B && curChunkY == newChunkY_B) { inRangeAB = true; shouldBreak = true; break; }
+                    int curChunkKey = GetChunkKey(curChunkX, curChunkY);
+                    localSpringBCapacityOrder += SpringCapacities[curChunkKey].x;
+                }
+            }
+        }
+        if (inRangeAB)
+        {
+            int newNeighboorNum = localSpringBCapacityOrder + pOrder_B;
+
+            int newChunkKey_A = GetChunkKey(newChunkX_A, newChunkY_A);
+
+            int nearSpringCapacity = (uint)SpringCapacities[newChunkKey_A].y / SpringCapacities[newChunkKey_A].x;
+            int newSpringIndex = FrameBufferCycle
+            ? SpringStartIndices_dbA[max(newChunkKey_A-1, 0)] + pOrder_A * nearSpringCapacity + newNeighboorNum + ParticleSpringsCombinedHalfLength
+            : SpringStartIndices_dbB[max(newChunkKey_A-1, 0)] + pOrder_A * nearSpringCapacity + newNeighboorNum;
+
+            ParticleSpringsCombined[newSpringIndex] = lastSpring;
+        }
+    }
+}
+
+[numthreads(TN_PS,1,1)]
+void ParticleForces (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)ParticlesNum) { return; }
+    // Index from SpatialLookup to improve memory access coherency
+    int i = SpatialLookup[id.x].x;
+
+    PDataStruct PData_i = PData[i];
+    PTypeStruct PType_i = PTypes[Extract_PType(PData_i.LastChunkKey_PType_POrder)];
+    int pOrder = Extract_POrder(PData_i.LastChunkKey_PType_POrder);
+    int lastChunkKey = Extract_LastChunkKey(PData_i.LastChunkKey_PType_POrder);
+    float startTemperature = PData_i.Temperature;
+
+    int chunkX = (uint)lastChunkKey % ChunksNum.x;
+    int chunkY = (int)((uint)lastChunkKey / ChunksNum.x);
+    int baseChunkKey = GetChunkKey(chunkX, chunkY);
+
+    int nearSpringCapacity = (uint)SpringCapacities[baseChunkKey].y / SpringCapacities[baseChunkKey].x;
+
+    float2 totPressureForce = float2(0.0, 0.0);
+    float2 totViscocityForce = float2(0.0, 0.0);
+    float2 totSpringForce = float2(0.0, 0.0);
+    float totTemperatureExchange = 0.0;
+    int nNum = 0;
+    for (int x = -1; x <= 1; x++)
+    {
+        int curChunkX = chunkX + x;
+
+        for (int y = -1; y <= 1; y++)
+        {
+            int curChunkY = chunkY + y;
+
+            if (!ValidChunk(curChunkX, curChunkY)) { continue; }
+
+            int chunkKey = GetChunkKey(curChunkX, curChunkY);
+            int startIndex = StartIndices[chunkKey];
+
+            int Index = startIndex;
+            while (Index < ParticlesNum && chunkKey == SpatialLookup[Index].y)
+            {
+                int otherPIndex = SpatialLookup[Index].x;
+                if (i == otherPIndex) { Index += 1; nNum += 1; continue; }
+                PDataStruct PData_otherPIndex = PData[otherPIndex];
+                PTypeStruct PType_otherPIndex = PTypes[Extract_PType(PData_otherPIndex.LastChunkKey_PType_POrder)];
+                float otherPIndex_Mass = PType_otherPIndex.Mass;
+
+                float2 dst = PData_otherPIndex.Position - PData_i.Position;
+                float sqrDst = dot(dst, dst);
+                float avgInfluenceRadius = avg(PType_i.InfluenceRadius, PType_otherPIndex.InfluenceRadius);
+
+                if (sqrDst > MaxInfluenceRadiusSqr || sqrDst > sqr(avgInfluenceRadius)) { Index += 1; nNum += 1; continue; }
+                float absDst = sqrt(sqrDst);
+                float2 normDst = normalize(dst);
+
+                float viscocityLaplacian = SmoothViscosityLaplacian_optimised(absDst, avgInfluenceRadius);
+
+                int springIndex = FrameBufferCycle
+                ? SpringStartIndices_dbA[max(baseChunkKey-1, 0)] + pOrder * nearSpringCapacity + nNum + ParticleSpringsCombinedHalfLength
+                : SpringStartIndices_dbB[max(baseChunkKey-1, 0)] + pOrder * nearSpringCapacity + nNum;
+
+                totPressureForce += otherPIndex_Mass * PressureForce(PData_i.Density, PData_otherPIndex.Density, PData_i.NearDensity, PData_otherPIndex.NearDensity, PType_i, PType_otherPIndex, absDst, avgInfluenceRadius, normDst, otherPIndex);
+                totViscocityForce += otherPIndex_Mass * ViscocityForce(PData_i.LastVelocity, PData_otherPIndex.LastVelocity, PType_i, PType_otherPIndex, viscocityLaplacian);
+                if (PType_i.FluidSpringsGroup != 0 && PType_i.FluidSpringsGroup == PType_otherPIndex.FluidSpringsGroup)
+                {
+                    totSpringForce += otherPIndex_Mass * LiquidSpringForce(PType_i, PType_otherPIndex, i, otherPIndex, springIndex, absDst, avgInfluenceRadius, normDst);
+                }
+
+                totTemperatureExchange += TemperatureExchange(viscocityLaplacian, PData_i.Temperature, PData_otherPIndex.Temperature, PType_i.ThermalConductivity, PType_otherPIndex.ThermalConductivity, absDst, DeltaTime);
+
+                // -- Increment Index each iteration - particle chunks algorithm, particle springs algorithm --
+
+                Index += 1;
+                nNum += 1;
+            }
+        }
+    }
+
+    float3 interactionEffects = PType_i.Mass * InteractionEffects(i);
+
+    float2 totForce = totPressureForce + totViscocityForce + totSpringForce + interactionEffects.xy - float2(0, PType_i.Gravity);
+    PData[i].Velocity += totForce * DeltaTime / PType_i.Mass;
+    PData[i].TemperatureExchangeBuffer = totTemperatureExchange + interactionEffects.z * DeltaTime;
+}
+
+[numthreads(TN_PS,1,1)]
+void UpdatePositions (uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+
+    PDataStruct PData_i = PData[i];
+    int pTypeIndex = Extract_PType(PData_i.LastChunkKey_PType_POrder);
+    PTypeStruct PType_i = PTypes[pTypeIndex];
+
+    // Update particle position and velocity
+    PData_i.Position += PData_i.Velocity * DeltaTime;
+    float4 PosVelData = BoundraryCheck(PData_i.Position, PData_i.Velocity, 0, PType_i.Damping);
+    PData[i].Position = float2(PosVelData.x, PosVelData.y);
+    float2 newVelocity = float2(PosVelData.z, PosVelData.w);
+
+    // Decrease velocity vector length with respect to the passive damping factor
+    newVelocity *= max(length(newVelocity) - PType_i.PassiveDamping * DeltaTime, 0) / length(newVelocity);
+    PData[i].Velocity = newVelocity;
+
+    // Update particle temperature
+    PData[i].Temperature += PData_i.TemperatureExchangeBuffer / PType_i.SpecificHeatCapacity;
+
+    // State changes
+    int stateKey = (uint)pTypeIndex % 3;
+    switch(stateKey)
+    {
+        // Solid
+        case 0:
+            if (PData[i].Temperature > PType_i.FreezeThreshold + StateThresholdPadding)
+            {
+                Set_PType(PData[i].LastChunkKey_PType_POrder, (int)((uint)pTypeIndex / 3) + 1); // Solid -> Liquid
+            }
+            break;
+
+        // Liquid
+        case 1:
+            if (PData[i].Temperature < PType_i.FreezeThreshold - StateThresholdPadding)
+            {
+                Set_PType(PData[i].LastChunkKey_PType_POrder, (int)((uint)pTypeIndex / 3) + 0); // Liquid -> Solid
+            }
+            else if (PData[i].Temperature > PType_i.VaporizeThreshold + StateThresholdPadding)
+            {
+                Set_PType(PData[i].LastChunkKey_PType_POrder, (int)((uint)pTypeIndex / 3) + 2); // Liquid -> Gas
+            }
+            break;
+
+        // Gas
+        case 2:
+            if (PData[i].Temperature < PType_i.VaporizeThreshold - StateThresholdPadding)
+            {
+                Set_PType(PData[i].LastChunkKey_PType_POrder, (int)((uint)pTypeIndex / 3) + 1); // Gas -> Liquid
+            }
+            break;
+    }
+}
+
+[numthreads(512,1,1)]
+void ConsumeStickynessRequests (uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+
+    StickynessRequestStruct stickynessRequest = SortedStickyRequests[i];
+    int pIndex = stickynessRequest.pIndex;
+
+    // This does many "unnecessary" iterations for every thread, but thread management complexity gets reduced
+    float smallestDstSqr = 100;
+    for (int offset = -3; offset <= 3; offset++) {
+        if (offset == 0) continue;
+
+        int idx = i + offset;
+        if (idx > 0 && idx < 4098) {
+            if (SortedStickyRequests[idx].pIndex == pIndex) {
+                if (SortedStickyRequests[idx].absDstToLineSqr < smallestDstSqr) {
+                    smallestDstSqr = SortedStickyRequests[idx].absDstToLineSqr;
+                }
+            }
+        }
+    }
+
+    if (stickynessRequest.absDstToLineSqr <= smallestDstSqr) {
+        PDataStruct PData_i = PData[pIndex];
+        PTypeStruct PType_i = PTypes[Extract_PType(PData_i.LastChunkKey_PType_POrder)];
+        float2 stickynessForce = StickynessForce(PData_i, PType_i, stickynessRequest);
+    
+        PData[pIndex].Velocity += stickynessForce * DeltaTime;  
+    }
+}
