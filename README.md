@@ -1,4 +1,3 @@
 # Simulation
 
-Integration of FluidSim2D and RayMarcher.
-Will feature an interactive 3D fluid simulation.
+An interactive 3D SPH fluid simulation
