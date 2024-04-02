@@ -1,0 +1,30 @@
+#pragma kernel TransferParticlePositionData // 0
+
+#include "Renderer/RendererDataTypes.hlsl"
+#include "Simulation/SimulationDataTypes.hlsl"
+
+const int ParticlesNum;
+const float OffsetZ;
+const float Radius;
+const int MaterialKey;
+
+RWStructuredBuffer<PDataStruct> PData;
+
+RWStructuredBuffer<Sphere> Spheres;
+
+[numthreads(512,1,1)] // TEMP
+void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= ParticlesNum) { return; }
+
+    PDataStruct pData = PData[i];
+
+    Sphere sphere;
+
+    sphere.pos = float3(pData.Position.x, pData.Position.y, OffsetZ);
+    sphere.radius = Radius;
+    sphere.materialKey = MaterialKey;
+
+    Spheres[i] = sphere;
+}

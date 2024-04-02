@@ -142,8 +142,6 @@ public class Simulation : MonoBehaviour
 
     void Start()
     {
-        SceneSetup();
-
         InitializeSetArrays();
         SetConstants();
         InitializeArrays();
@@ -165,18 +163,13 @@ public class Simulation : MonoBehaviour
         shaderHelper.UpdateSortShaderVariables(sortShader);
         shaderHelper.UpdateMarchingSquaresShaderVariables(marchingSquaresShader);
 
-        renderTexture = TextureHelper.CreateTexture(Resolution, 3);
-
-        renderShader.SetTexture(0, "Result", renderTexture);
-
         ProgramStarted = true;
     }
 
-    void Update()
+    public void RunTimeSteps()
     {
         UpdateShaderTimeStep();
 
-        // GPUSortSpringLookUp() have to be called in succession to GPUSortChunkLookUp()
         GPUSortChunkLookUp();
         GPUSortSpringLookUp();
 
@@ -190,9 +183,8 @@ public class Simulation : MonoBehaviour
             if (i == 1) {
                 DoCalcStickyRequests = true;
                 rbSimShader.SetInt("DoCalcStickyRequests", 1);
-                GPUSortStickynessRequests(); 
-                int ThreadNums = Utils.GetThreadGroupsNum(4096, 512);
-                pSimShader.Dispatch(6, ThreadNums, 1, 1);
+                GPUSortStickynessRequests();
+                ComputeHelper.DispatchKernel (pSimShader, "ConsumeStickynessRequests", 4096, pSimShaderThreadSize);
             }
             else {
                 DoCalcStickyRequests = false;
@@ -201,16 +193,13 @@ public class Simulation : MonoBehaviour
 
             RunRbSimShader();
 
-            int ThreadNums2 = Utils.GetThreadGroupsNum(ParticlesNum, pSimShaderThreadSize);
-            if (ParticlesNum != 0) {pSimShader.Dispatch(5, ThreadNums2, 1, 1);}
+            ComputeHelper.DispatchKernel (pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize);
             
             if (RenderMarchingSquares)
             {
                 RunMarchingSquaresShader();
             }
         }
-
-        // RunRenderShader() is called by OnRenderImage()
     }
 
     private void OnValidate()
@@ -258,21 +247,6 @@ public class Simulation : MonoBehaviour
         pSimShader.SetBool("FrameBufferCycle", FrameBufferCycle);
     }
 
-    void SceneSetup()
-    {
-        while (Height % MaxInfluenceRadius != 0) {
-            Height += 1;
-        }
-        while (Width % MaxInfluenceRadius != 0) {
-            Width += 1;
-        }
-
-        Camera.main.transform.position = new Vector3(Width / 2, Height / 2, -1);
-        Camera.main.orthographicSize = Mathf.Max(Width * 0.75f, Height * 1.5f);
-
-        marchingSquaresMesh = GetComponent<MeshFilter>().mesh;
-    }
-
     float GetDeltaTime()
     {
         return FixedTimeStep
@@ -282,6 +256,9 @@ public class Simulation : MonoBehaviour
 
     void SetConstants()
     {
+        Func.NextDivisible(Height, MaxInfluenceRadius);
+        Func.NextDivisible(Width, MaxInfluenceRadius);
+
         MaxInfluenceRadiusSqr = MaxInfluenceRadius * MaxInfluenceRadius;
         InvMaxInfluenceRadius = 1.0f / MaxInfluenceRadius;
         ChunksNum.x = Width / MaxInfluenceRadius;
@@ -826,24 +803,24 @@ public class Simulation : MonoBehaviour
         marchingSquaresMesh.RecalculateNormals();
     }
 
-    void RunRenderShader()
-    {
-        ComputeHelper.DispatchKernel (renderShader, "Render2D", new int2(renderTexture.width, renderTexture.height), renderShaderThreadSize);
-    }
+    // void RunRenderShader()
+    // {
+    //     ComputeHelper.DispatchKernel (renderShader, "Render2D", new int2(renderTexture.width, renderTexture.height), renderShaderThreadSize);
+    // }
 
-    public void OnRenderImage(RenderTexture src, RenderTexture dest)
-    {
-        if (RenderMarchingSquares)
-        {
-            Graphics.Blit(src, dest);
-        }
-        else
-        {
-            RunRenderShader();
+    // public void OnRenderImage(RenderTexture src, RenderTexture dest)
+    // {
+    //     if (RenderMarchingSquares)
+    //     {
+    //         Graphics.Blit(src, dest);
+    //     }
+    //     else
+    //     {
+    //         RunRenderShader();
 
-            Graphics.Blit(renderTexture, dest);
-        }
-    }
+    //         Graphics.Blit(renderTexture, dest);
+    //     }
+    // }
 
     void OnDestroy()
     {

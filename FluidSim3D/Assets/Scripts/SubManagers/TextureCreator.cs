@@ -13,21 +13,20 @@ public class TextureCreator : MonoBehaviour
     public int inputB = 3; // TEMP
     public float NoisePixelSize = 0.7f;
     public bool RenderNoiseTextures = true;
-    private bool LateStart = true;
 
     [Header("References")]
     public ComputeShader ngShader;
     public ComputeShader rmShader;
     public TextureHelper textureHelper;
 
-    void Start ()
+    void Awake ()
     {
         textureHelper.UpdateScriptTextures(NoiseResolution, 1);
     }
 
-    void Update()
+    void Start ()
     {
-        if (LateStart) { InitNoiseTextures(); LateStart = !LateStart;}
+        InitNoiseTextures();
     }
 
     // Creates a Cloud-like 3D texture
@@ -75,8 +74,8 @@ public class TextureCreator : MonoBehaviour
         textureHelper.AddBrightnessFixed(ref voronoi0, NoiseResolution, -0.2f);
         textureHelper.ChangeBrightness(ref voronoi0, NoiseResolution, 1.25f);
         textureHelper.GaussianBlur(ref voronoi0, NoiseResolution, 3, 5);
-        
-        rmShader.SetTexture(1, "NoiseA", voronoi0);
+
+        rmShader.SetTexture(1, "NoiseA", voronoi0); // Final texture stored in voronoi0
         rmShader.SetTexture(1, "NoiseB", TextureHelper.CreateTexture(NoiseResolution, 1)); // Nothing to display for NoiseB
     }
 }

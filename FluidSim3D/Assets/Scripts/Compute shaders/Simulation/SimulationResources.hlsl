@@ -1,4 +1,5 @@
 #include "../Constants.hlsl"
+#include "SimulationDataTypes.hlsl"
 
 // -- Optimised SPH kernel functions --
 

@@ -44,12 +44,6 @@ const bool LMousePressed;
 RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
 
-struct SpringStruct
-{
-    int PLinkedA;
-    int PLinkedB;
-    float RestLength;
-};
 RWStructuredBuffer<SpringStruct> ParticleSpringsCombined; // Buffer_A / Buffer_B
 
 const bool FrameBufferCycle;
@@ -58,61 +52,9 @@ RWStructuredBuffer<int2> SpringCapacities; // [](baseChunkCapacity, neighboorChu
 RWStructuredBuffer<int> SpringStartIndices_dbA; // Result A
 RWStructuredBuffer<int> SpringStartIndices_dbB; // Result B
 
-struct PTypeStruct
-{
-    int FluidSpringsGroup;
-
-    float SpringPlasticity;
-    float SpringTolDeformation;
-    float SpringStiffness;
-
-    float ThermalConductivity;
-    float SpecificHeatCapacity;
-    float FreezeThreshold;
-    float VaporizeThreshold;
-
-    float Pressure;
-    float NearPressure;
-
-    float Mass;
-    float TargetDensity;
-    float Damping;
-    float PassiveDamping;
-    float Viscosity;
-    float Stickyness;
-    float Gravity;
-
-    float InfluenceRadius;
-    float colorG;
-};
 RWStructuredBuffer<PTypeStruct> PTypes;
-
-struct PDataStruct
-{
-    float2 PredPosition;
-    float2 Position;
-    float2 Velocity;
-    float2 LastVelocity;
-    float Density;
-    float NearDensity;
-    float Temperature; // kelvin
-    float TemperatureExchangeBuffer;
-    int LastChunkKey_PType_POrder; // composed 3 int structure
-    // POrder is dynamic, 
-    // 0 <= LastChunkKey <= ChunkNum
-    // 0 <= PType <= PTypesNum
-};
 RWStructuredBuffer<PDataStruct> PData;
 
-struct StickynessRequestStruct
-{
-    int pIndex;
-    int StickyLineIndex;
-    float2 StickyLineDst;
-    float absDstToLineSqr;
-    float RBStickyness;
-    float RBStickynessRange;
-};
 RWStructuredBuffer<StickynessRequestStruct> SortedStickyRequests;
 
 bool ValidChunk(int ChunkX, int ChunkY)

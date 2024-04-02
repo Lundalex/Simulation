@@ -119,5 +119,16 @@ namespace Resources
         {
             a = Log2(NextPow2(a));
         }
+
+        /// <summary>Calculates the next integer divisible by a divisor</summary>
+        public static void NextDivisible(ref int a, int divisor)
+        {
+            a = Mathf.CeilToInt(a / divisor) * divisor;
+        }
+        /// <summary>Calculates the next integer divisible by a divisor</summary>
+        public static int NextDivisible(int a, int divisor)
+        {
+            return Mathf.CeilToInt(a / divisor) * divisor;
+        }
     }
 }

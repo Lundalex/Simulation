@@ -49,32 +49,8 @@ RWStructuredBuffer<int> SpringStartIndices_dbA; // Result A
 RWStructuredBuffer<int> SpringStartIndices_dbB; // Result B
 RWStructuredBuffer<int> SpringStartIndices_dbC; // Support
 
-struct PDataStruct
-{
-    float2 PredPosition;
-    float2 Position;
-    float2 Velocity;
-    float2 LastVelocity;
-    float Density;
-    float NearDensity;
-    float Temperature; // kelvin
-    float TemperatureExchangeBuffer;
-    int LastChunkKey_PType_POrder; // composed 3 int structure
-    // POrder; // POrder is dynamic, 
-    // LastChunkKey; // 0 <= LastChunkKey <= ChunksNumAll
-    // PType; // 0 <= PType <= PTypeNum
-};
 RWStructuredBuffer<PDataStruct> PData;
 
-struct StickynessRequestStruct
-{
-    int pIndex;
-    int StickyLineIndex;
-    float2 StickyLineDst;
-    float absDstToLineSqr;
-    float RBStickyness;
-    float RBStickynessRange;
-};
 ConsumeStructuredBuffer<StickynessRequestStruct> StickynessReqsCONSUME;
 RWStructuredBuffer<StickynessRequestStruct> SortedStickyRequests;
 

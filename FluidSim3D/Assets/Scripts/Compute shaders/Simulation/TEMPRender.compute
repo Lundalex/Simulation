@@ -20,80 +20,10 @@ RWTexture2D<float4> Result;
 RWStructuredBuffer<int2> SpatialLookup;
 RWStructuredBuffer<int> StartIndices;
 
-struct PTypeStruct
-{
-    int FluidSpringsGroup;
-
-    float SpringPlasticity;
-    float SpringTolDeformation;
-    float SpringStiffness;
-
-    float ThermalConductivity;
-    float SpecificHeatCapacity;
-    float FreezeThreshold;
-    float VaporizeThreshold;
-
-    float Pressure;
-    float NearPressure;
-
-    float Mass;
-    float TargetDensity;
-    float Damping;
-    float PassiveDamping;
-    float Viscosity;
-    float Stickyness;
-    float Gravity;
-
-    float InfluenceRadius;
-    float colorG;
-};
 RWStructuredBuffer<PTypeStruct> PTypes;
-
-struct PDataStruct
-{
-    float2 PredPosition;
-    float2 Position;
-    float2 Velocity;
-    float2 LastVelocity;
-    float Density;
-    float NearDensity;
-    float Temperature; // kelvin
-    float TemperatureExchangeBuffer;
-    int LastChunkKey_PType_POrder; // flat 3 int structure
-    // POrder; // POrder is dynamic, 
-    // LastChunkKey; // 0 <= LastChunkKey <= ChunkNum
-    // PType; // 0 <= PType <= PTypeNum
-};
 RWStructuredBuffer<PDataStruct> PData;
 
-struct RBDataStruct
-{
-    float2 Position;
-    float2 Velocity;
-    // radians / second
-    float AngularImpulse;
-    float Stickyness;
-    float StickynessRange;
-    float StickynessRangeSqr;
-    float2 NextPos;
-    float2 NextVel;
-    float NextAngImpulse;
-    float Mass;
-    int2 LineIndices;
-    float MaxDstSqr;
-    int WallCollision;
-    int Stationary; // 1 -> Stationary, 0 -> Non-stationary
-};
 RWStructuredBuffer<RBDataStruct> RBData;
-
-struct RBVectorStruct
-{
-    float2 Position;
-    float2 LocalPosition;
-    float3 ParentImpulse;
-    int ParentRBIndex;
-    int WallCollision;
-};
 RWStructuredBuffer<RBVectorStruct> RBVector;
 
 bool ValidChunk(int ChunkX, int ChunkY)

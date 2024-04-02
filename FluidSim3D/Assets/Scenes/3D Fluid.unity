@@ -151,7 +151,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -324,24 +324,60 @@ MonoBehaviour:
   CellSize: 1
   RenderTris: 1
   OBJ_Pos:
-    x: 0
-    y: 0
-    z: 14.75
+    x: 2
+    y: -2
+    z: 0
   OBJ_Rot:
-    x: 0.83
-    y: -0.43
-    z: 5.63
+    x: 0
+    y: -3.76
+    z: 0
   SpheresInput:
+  - x: -5
+    y: 1
+    z: 4
+    w: 5.92
+  - x: -18
+    y: -1
+    z: -18
+    w: 1
+  - x: 0.5
+    y: -10.9
+    z: -2
+    w: 5.1
+  - x: 2.2
+    y: -5
+    z: -4.7
+    w: 0.7
+  - x: 0.5
+    y: -4.5
+    z: -4.5
+    w: 0.7
+  - x: -1
+    y: -8.3
+    z: -29
+    w: 0.7
+  - x: -2
+    y: -5.4
+    z: -3
+    w: 1
+  - x: -0.7
+    y: -2.8
+    z: -3.5
+    w: 0.7
+  MatTypesInput1:
+  - x: 1
+    y: 1
+    z: 0
+    w: 0.05
   - x: 1
     y: 1
     z: 1
-    w: 1.8
-  MatTypesInput1:
-  - x: 0
-    y: 4.35
-    z: -1.02
-    w: 0
+    w: 5.92
   MatTypesInput2:
+  - x: 1
+    y: 0
+    z: 0
+    w: 0
   - x: 0
     y: 0
     z: 0
@@ -368,6 +404,57 @@ MonoBehaviour:
   render: {fileID: 868168749}
   texture: {fileID: 473926887}
   th: {fileID: 473926888}
+--- !u!1 &1164272047
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1164272049}
+  - component: {fileID: 1164272048}
+  m_Layer: 0
+  m_Name: Program Manager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1164272048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1164272047}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c64949e5b2df884bb8f7c5f3b908c48, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  POffsetZ: -15
+  PRadius: 0.2
+  PMaterialKey: 1
+  renderer: {fileID: 868168749}
+  sim: {fileID: 2125271849}
+  texture: {fileID: 473926887}
+  dtShader: {fileID: 7200000, guid: d1021112b3303574191bcb6a5e085237, type: 3}
+--- !u!4 &1164272049
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1164272047}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0, y: 0, z: 0}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &2125271846
 GameObject:
   m_ObjectHideFlags: 0
@@ -379,6 +466,7 @@ GameObject:
   - component: {fileID: 2125271847}
   - component: {fileID: 2125271849}
   - component: {fileID: 2125271848}
+  - component: {fileID: 2125271850}
   m_Layer: 0
   m_Name: Simulation
   m_TagString: Untagged
@@ -396,7 +484,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0, y: 0, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -470,11 +558,19 @@ MonoBehaviour:
   InteractionFountainPower: 0
   InteractionTemperaturePower: 0
   shaderHelper: {fileID: 2125271848}
-  renderShader: {fileID: 0}
-  pSimShader: {fileID: 0}
-  rbSimShader: {fileID: 0}
-  sortShader: {fileID: 0}
-  marchingSquaresShader: {fileID: 0}
+  renderShader: {fileID: 7200000, guid: dd842b5068734fa4e80332a3188c9627, type: 3}
+  pSimShader: {fileID: 7200000, guid: 4c6ba7b69baa30b428d3e81f801e27b8, type: 3}
+  rbSimShader: {fileID: 7200000, guid: 3e72e65699b868a4d8590ebb7e640340, type: 3}
+  sortShader: {fileID: 7200000, guid: 3e99023e342e7f542b3045d213b12c03, type: 3}
+  marchingSquaresShader: {fileID: 7200000, guid: 53a21f71eed458e4da23a64374440d8f, type: 3}
+--- !u!33 &2125271850
+MeshFilter:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2125271846}
+  m_Mesh: {fileID: 0}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -482,3 +578,4 @@ SceneRoots:
   - {fileID: 868168748}
   - {fileID: 2125271847}
   - {fileID: 473926886}
+  - {fileID: 1164272049}

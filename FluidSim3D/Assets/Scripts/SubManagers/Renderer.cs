@@ -82,7 +82,7 @@ public class Renderer : MonoBehaviour
     [NonSerialized] public int NumChunksAll;
     [NonSerialized] public float3 ChunkGridOffset;
 
-    void Start()
+    void Awake ()
     {
         Camera.main.cullingMask = 0;
         FrameCount = 0;
@@ -209,7 +209,7 @@ public class Renderer : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<TriObject>(ref B_TriObjects, TriObjects);
     }
 
-    void Update()
+    public void UpdateRendererData()
     {
         FrameCount++;
         shaderHelper.UpdateRMVariables(rmShader);
@@ -255,10 +255,22 @@ public class Renderer : MonoBehaviour
             {
                 pos = new float3(SpheresInput[i].x, SpheresInput[i].y, SpheresInput[i].z),
                 radius = SpheresInput[i].w,
-                materialKey = i == 0 ? 1 : 0,
+                materialKey = i == 0 ? 1 : 0
             };
         }
         ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, Spheres);
+
+        // Spheres = new Sphere[300];
+        // for (int i = 0; i < Spheres.Length; i++)
+        // {
+        //     Spheres[i] = new Sphere
+        //     {
+        //         pos = new float3(0.0f, 0.0f, 0.0f),
+        //         radius = 0.0f,
+        //         materialKey = 0
+        //     };
+        // }
+        // ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, Spheres);
 
         // Set Materials data
         Materials = new Material2[MatTypesInput1.Length];
@@ -334,7 +346,6 @@ public class Renderer : MonoBehaviour
         if (SettingsChanged) { RunPCShader(); SettingsChanged = false; } // PreCalc
         RunSSShader(); // SpatialSort
         RunRMShader(); // RayMarcher
-        // RunNGShader() located in Start()
 
         Graphics.Blit(renderTexture, dest);
     }

@@ -1,4 +1,5 @@
 #include "../Constants.hlsl"
+#include "RendererDataTypes.hlsl"
 
 void ApplyTransformTriVertices(float3 rot, inout float3 a, inout float3 b, inout float3 c)
 {
