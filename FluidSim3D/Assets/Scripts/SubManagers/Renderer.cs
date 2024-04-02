@@ -43,6 +43,7 @@ public class Renderer : MonoBehaviour
     [NonSerialized] public RenderTexture renderTexture; // Texture drawn to screen
     public RendererShaderHelper shaderHelper;
     public TextureCreator textureCreator;
+    public Simulation sim;
     public Mesh LoadOBJMesh;
 
     // Shader settings
@@ -248,29 +249,17 @@ public class Renderer : MonoBehaviour
     void SetSceneObjects()
     {
         // Set Spheres data
-        Spheres = new Sphere[SpheresInput.Length];
-        for (int i = 0; i < Spheres.Length; i++)
-        {
-            Spheres[i] = new Sphere
-            {
-                pos = new float3(SpheresInput[i].x, SpheresInput[i].y, SpheresInput[i].z),
-                radius = SpheresInput[i].w,
-                materialKey = i == 0 ? 1 : 0
-            };
-        }
-        ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, Spheres);
-
-        // Spheres = new Sphere[300];
-        // for (int i = 0; i < Spheres.Length; i++)
+        Spheres = new Sphere[sim.ParticlesNum];
+        // for (int i = 0; i < SpheresInput.Length; i++)
         // {
         //     Spheres[i] = new Sphere
         //     {
-        //         pos = new float3(0.0f, 0.0f, 0.0f),
-        //         radius = 0.0f,
-        //         materialKey = 0
+        //         pos = new float3(SpheresInput[i].x, SpheresInput[i].y, SpheresInput[i].z),
+        //         radius = SpheresInput[i].w,
+        //         materialKey = i == 0 ? 1 : 0
         //     };
         // }
-        // ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, Spheres);
+        ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, Spheres);
 
         // Set Materials data
         Materials = new Material2[MatTypesInput1.Length];

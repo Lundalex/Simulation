@@ -7,10 +7,18 @@ const int ParticlesNum;
 const float OffsetZ;
 const float Radius;
 const int MaterialKey;
+const int ChunksNumAll;
+const int PTypesNum;
 
 RWStructuredBuffer<PDataStruct> PData;
+RWStructuredBuffer<PTypeStruct> PTypes;
 
 RWStructuredBuffer<Sphere> Spheres;
+
+int Extract_PType(int LastChunkKey_PType_POrder)
+{
+    return ((uint)LastChunkKey_PType_POrder % (ChunksNumAll * PTypesNum)) / ChunksNumAll;
+}
 
 [numthreads(512,1,1)] // TEMP
 void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
@@ -19,12 +27,14 @@ void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
     if (i >= ParticlesNum) { return; }
 
     PDataStruct pData = PData[i];
+    // PTypeStruct pType = PTypes[Extract_PType(pData.LastChunkKey_PType_POrder)];
+    int pTypeIndex = Extract_PType(pData.LastChunkKey_PType_POrder);
 
     Sphere sphere;
 
-    sphere.pos = float3(pData.Position.x, pData.Position.y, OffsetZ);
+    sphere.pos = float3(pData.Position.x, pData.Position.y * 1.5, OffsetZ) * .1;
     sphere.radius = Radius;
-    sphere.materialKey = MaterialKey;
+    sphere.materialKey = pTypeIndex == 1 ? 0 : 1;
 
     Spheres[i] = sphere;
 }

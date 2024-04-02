@@ -28,21 +28,21 @@ public class ProgramManager : MonoBehaviour
         if (!ProgramStarted)
         {
             dtShader.SetBuffer(0, "PData", sim.PDataBuffer);
+            dtShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
             dtShader.SetBuffer(0, "Spheres", renderer.B_Spheres);
 
+            dtShader.SetFloat("ParticlesNum", sim.ParticlesNum);
             dtShader.SetFloat("OffsetZ", POffsetZ);
             dtShader.SetFloat("Radius", PRadius);
             dtShader.SetFloat("MaterialKey", PMaterialKey);
+            dtShader.SetFloat("ChunksNumAll", sim.ChunksNumAll);
+            dtShader.SetFloat("PTypesNum", sim.PTypes.Length);
 
             ProgramStarted = !ProgramStarted;
         }
 
         ComputeHelper.DispatchKernel(dtShader, "TransferParticlePositionData", sim.ParticlesNum, dtShaderThreadSize);
-
-        // Sphere[] Spheres = new Sphere[renderer.NumSpheres];
-        // renderer.B_Spheres.GetData(Spheres);
-        // int a = 0;
-
+        
         renderer.UpdateRendererData();
     }
 }

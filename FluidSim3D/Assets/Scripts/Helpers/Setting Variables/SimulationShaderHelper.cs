@@ -179,21 +179,6 @@ public class SimulationShaderHelper : MonoBehaviour
         rbSimShader.SetFloat("BorderPadding", sim.BorderPadding);
     }
 
-    public void UpdateRenderShaderVariables(ComputeShader renderShader)
-    {
-        renderShader.SetFloat("VisualParticleRadii", sim.VisualParticleRadii);
-        renderShader.SetFloat("RBRenderThickness", sim.RBRenderThickness);
-        renderShader.SetVector("Resolution", new Vector2(sim.Resolution.x, sim.Resolution.y));
-        renderShader.SetInt("Width", sim.Width);
-        renderShader.SetInt("Height", sim.Height);
-        renderShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
-        renderShader.SetVector("ChunksNum", new Vector2(sim.ChunksNum.x, sim.ChunksNum.y));
-        renderShader.SetInt("ParticlesNum", sim.ParticlesNum);
-        renderShader.SetInt("RBodiesNum", sim.RBData.Length);
-        renderShader.SetInt("RBVectorNum", sim.RBVector.Length);
-        
-    }
-
     public void UpdateSortShaderVariables(ComputeShader sortShader)
     {
         sortShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);

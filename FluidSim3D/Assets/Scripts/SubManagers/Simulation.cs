@@ -44,7 +44,6 @@ public class Simulation : MonoBehaviour
     public float RBRenderThickness = 0.5f;
     public int TimeStepsPerRender = 3;
     public float MSvalMin = 0.41f; // TEMP
-    public int2 Resolution = new(1920, 1280);
     public int MSResolution = 3;
     public int MarchW = 100;
     public int MarchH = 66;
@@ -57,7 +56,6 @@ public class Simulation : MonoBehaviour
 
     [Header("References")]
     public SimulationShaderHelper shaderHelper;
-    public ComputeShader renderShader;
     public ComputeShader pSimShader;
     public ComputeShader rbSimShader;
     public ComputeShader sortShader;
@@ -118,12 +116,11 @@ public class Simulation : MonoBehaviour
     [NonSerialized] public int ParticlesNum_NextLog2;
 
     // Private references
-    private RenderTexture renderTexture;
     private Mesh marchingSquaresMesh;
 
     // Particle data
     private PDataStruct[] PData;
-    private PTypeStruct[] PTypes;
+    [NonSerialized] public PTypeStruct[] PTypes;
 
     // Rigid Bodies - Properties
     public RBVectorStruct[] RBVector;
@@ -153,13 +150,11 @@ public class Simulation : MonoBehaviour
         InitializeBuffers();
         shaderHelper.SetPSimShaderBuffers(pSimShader);
         shaderHelper.SetRbSimShaderBuffers(rbSimShader);
-        shaderHelper.SetRenderShaderBuffers(renderShader);
         shaderHelper.SetSortShaderBuffers(sortShader);
         shaderHelper.SetMarchingSquaresShaderBuffers(marchingSquaresShader);
 
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRbSimShaderVariables(rbSimShader);
-        shaderHelper.UpdateRenderShaderVariables(renderShader);
         shaderHelper.UpdateSortShaderVariables(sortShader);
         shaderHelper.UpdateMarchingSquaresShaderVariables(marchingSquaresShader);
 
@@ -218,7 +213,6 @@ public class Simulation : MonoBehaviour
 
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
         shaderHelper.UpdateRbSimShaderVariables(rbSimShader);
-        shaderHelper.UpdateRenderShaderVariables(renderShader);
         shaderHelper.UpdateSortShaderVariables(sortShader);
         shaderHelper.UpdateMarchingSquaresShaderVariables(marchingSquaresShader);
     }
@@ -227,8 +221,8 @@ public class Simulation : MonoBehaviour
     {
         DeltaTime = GetDeltaTime();
         
-        Vector2 mouseWorldPos = Utils.GetMouseWorldPos(Width, Height);
-        // (Left?, Right?)
+        Vector2 mouseWorldPos = Utils.GetMousePosNormalised() * new Vector2(Width, Height);
+        // bool2(Left?, Right?)
         bool2 mousePressed = Utils.GetMousePressed();
 
         pSimShader.SetFloat("DeltaTime", DeltaTime);
@@ -802,25 +796,6 @@ public class Simulation : MonoBehaviour
 
         marchingSquaresMesh.RecalculateNormals();
     }
-
-    // void RunRenderShader()
-    // {
-    //     ComputeHelper.DispatchKernel (renderShader, "Render2D", new int2(renderTexture.width, renderTexture.height), renderShaderThreadSize);
-    // }
-
-    // public void OnRenderImage(RenderTexture src, RenderTexture dest)
-    // {
-    //     if (RenderMarchingSquares)
-    //     {
-    //         Graphics.Blit(src, dest);
-    //     }
-    //     else
-    //     {
-    //         RunRenderShader();
-
-    //         Graphics.Blit(renderTexture, dest);
-    //     }
-    // }
 
     void OnDestroy()
     {

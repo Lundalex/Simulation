@@ -3,6 +3,7 @@ using Unity.Mathematics;
 using System;
 using Vector2 = UnityEngine.Vector2;
 using Vector3 = UnityEngine.Vector3;
+using System.Numerics;
 
 namespace Resources
 {
@@ -37,12 +38,12 @@ namespace Resources
             return MousePressed;
         }
 
-        public static Vector2 GetMouseWorldPos(int Width, int Height)
+        public static Vector2 GetMousePosNormalised()
         {
-            Vector3 MousePos = Camera.main.ScreenToWorldPoint(new Vector3(Input.mousePosition.x , Input.mousePosition.y , -Camera.main.transform.position.z));
-            Vector2 MouseWorldPos = new(((MousePos.x - Width/2) * 0.55f + Width) / 2, ((MousePos.y - Height/2) * 0.55f + Height) / 2);
+            Vector3 mousePos = Input.mousePosition;
+            Vector2 mouseWorldPos = new Vector2(mousePos.x / 3840, mousePos.y / 2160);
 
-            return MouseWorldPos;
+            return mouseWorldPos;
         }
 
         public static float CelciusToKelvin(float celciusTemp)

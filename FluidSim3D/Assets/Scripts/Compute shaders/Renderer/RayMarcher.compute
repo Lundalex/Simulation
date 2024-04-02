@@ -145,22 +145,22 @@ ScanInfo Scan (Ray ray, inout int rngState)
                 normal = normalize(ray.pos - sphere.pos);
             }
         }
-        else
-        {
-            // Calculate distance to tri
-            int triIndex = objectIndex - NumSpheres;
-            Tri tri = Tris[triIndex];
+        // else
+        // {
+        //     // Calculate distance to tri
+        //     int triIndex = objectIndex - NumSpheres;
+        //     Tri tri = Tris[triIndex];
             
-            float3 localRayPos = ray.pos - TriObjects[tri.parentKey].pos;
-            float dstSqr = TriDstSqr(localRayPos, tri.vA, tri.vB, tri.vC);
+        //     float3 localRayPos = ray.pos - TriObjects[tri.parentKey].pos;
+        //     float dstSqr = TriDstSqr(localRayPos, tri.vA, tri.vB, tri.vC);
 
-            if (dstSqr < nearDstSqr)
-            {
-                nearDstSqr = dstSqr;
-                materialKey = tri.materialKey;
-                normal = tri.normal;
-            }
-        }
+        //     if (dstSqr < nearDstSqr)
+        //     {
+        //         nearDstSqr = dstSqr;
+        //         materialKey = tri.materialKey;
+        //         normal = tri.normal;
+        //     }
+        // }
 
         Index += 1;
     }

@@ -175,7 +175,7 @@ MonoBehaviour:
   NoiseCellSize: 128
   LerpFactor: 0.15
   inputB: 3
-  NoisePixelSize: 0.7
+  NoisePixelSize: 0.4
   RenderNoiseTextures: 1
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
@@ -282,7 +282,7 @@ Transform:
   m_GameObject: {fileID: 868168745}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -3.6, z: -9.28}
+  m_LocalPosition: {x: 15, y: 15, z: -23}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -304,24 +304,24 @@ MonoBehaviour:
   Resolution:
     x: 1920
     y: 1080
-  MaxStepCount: 60
-  RaysPerPixel: 2
+  MaxStepCount: 146
+  RaysPerPixel: 1
   HitThreshold: 0.01
   ScatterProbability: 1
   DefocusStrength: 0
   focalPlaneFactor: 16.7
   MaxStepSize: 0.15
   FrameCount: 0
-  ChunksPerObject: 50
+  ChunksPerObject: 273
   MinWorldBounds:
-    x: -40
-    y: -40
-    z: -40
+    x: 0
+    y: 0
+    z: -30
   MaxWorldBounds:
-    x: 40
-    y: 40
-    z: 40
-  CellSize: 1
+    x: 30
+    y: 30
+    z: 0
+  CellSize: 0.2
   RenderTris: 1
   OBJ_Pos:
     x: 2
@@ -366,13 +366,13 @@ MonoBehaviour:
     w: 0.7
   MatTypesInput1:
   - x: 1
-    y: 1
-    z: 0
-    w: 0.05
+    y: 0
+    z: 1
+    w: 5
   - x: 1
     y: 1
-    z: 1
-    w: 5.92
+    z: 0
+    w: 5
   MatTypesInput2:
   - x: 1
     y: 0
@@ -388,6 +388,7 @@ MonoBehaviour:
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   shaderHelper: {fileID: 868168750}
   textureCreator: {fileID: 473926887}
+  sim: {fileID: 2125271849}
   LoadOBJMesh: {fileID: -2432090755550338912, guid: cbfc12edff426ee4ca1fef259989a787, type: 3}
 --- !u!114 &868168750
 MonoBehaviour:
@@ -434,7 +435,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   POffsetZ: -15
-  PRadius: 0.2
+  PRadius: 0.1
   PMaterialKey: 1
   renderer: {fileID: 868168749}
   sim: {fileID: 2125271849}
@@ -547,18 +548,14 @@ MonoBehaviour:
   RBRenderThickness: 0.5
   TimeStepsPerRender: 3
   MSvalMin: 0.41
-  Resolution:
-    x: 1920
-    y: 1280
   MSResolution: 3
   MarchW: 100
   MarchH: 66
   MaxInteractionRadius: 40
-  InteractionAttractionPower: 3.5
+  InteractionAttractionPower: 7
   InteractionFountainPower: 0
   InteractionTemperaturePower: 0
   shaderHelper: {fileID: 2125271848}
-  renderShader: {fileID: 7200000, guid: dd842b5068734fa4e80332a3188c9627, type: 3}
   pSimShader: {fileID: 7200000, guid: 4c6ba7b69baa30b428d3e81f801e27b8, type: 3}
   rbSimShader: {fileID: 7200000, guid: 3e72e65699b868a4d8590ebb7e640340, type: 3}
   sortShader: {fileID: 7200000, guid: 3e99023e342e7f542b3045d213b12c03, type: 3}
