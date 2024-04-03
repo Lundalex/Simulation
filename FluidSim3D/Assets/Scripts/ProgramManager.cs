@@ -10,16 +10,18 @@ public class ProgramManager : MonoBehaviour
     public float RotationSpeed;
     public float PRadius;
     public float3 Rot;
-    public new Renderer renderer;
+    public Renderer render;
     public Simulation sim;
     public TextureCreator texture;
     public ComputeShader dtShader;
     private const int dtShaderThreadSize = 512; // /1024
     private bool ProgramStarted = false;
 
-    void Start()
+    void Awake()
     {
-        
+        sim.ScriptSetup();
+        texture.ScriptSetup();
+        render.ScriptSetup();
     }
 
     void Update()
@@ -30,7 +32,7 @@ public class ProgramManager : MonoBehaviour
         {
             dtShader.SetBuffer(0, "PDataB", sim.PDataBuffer);
             dtShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
-            dtShader.SetBuffer(0, "Spheres", renderer.B_Spheres);
+            dtShader.SetBuffer(0, "Spheres", render.B_Spheres);
 
             ProgramStarted = !ProgramStarted;
         }
@@ -44,6 +46,6 @@ public class ProgramManager : MonoBehaviour
 
         ComputeHelper.DispatchKernel(dtShader, "TransferParticlePositionData", sim.ParticlesNum, dtShaderThreadSize);
         
-        renderer.UpdateRendererData();
+        render.UpdateRendererData();
     }
 }

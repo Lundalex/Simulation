@@ -62,6 +62,15 @@ public class RendererShaderHelper : MonoBehaviour
         ngShader.SetTexture(3, "PointsMap", th.T_PointsMap);
     }
 
+    public void SetMSShaderBuffers (ComputeShader msShader)
+    {
+        msShader.SetBuffer(0, "SpatialLookup", render.B_SpatialLookup);
+        msShader.SetBuffer(0, "StartIndices", render.B_StartIndices);
+        msShader.SetBuffer(0, "Spheres", render.B_Spheres);
+
+        msShader.SetTexture(0, "GridDensities", render.T_GridDensities);
+    }
+
 // --- SHADER SETTINGS / VARIABLES ---
 
     public void SetRMSettings (ComputeShader rmShader)
@@ -132,6 +141,16 @@ public class RendererShaderHelper : MonoBehaviour
     public void SetNGSettings (ComputeShader ngShader)
     {
         ngShader.SetVector("NoiseResolution", new Vector3(texture.NoiseResolution.x, texture.NoiseResolution.y, texture.NoiseResolution.z));
+    }
+
+    public void SetMSShaderSettings (ComputeShader msShader)
+    {
+        msShader.SetVector("NumCellsMS", new Vector3(render.NumCellsMS.x, render.NumCellsMS.y, render.NumCellsMS.z));
+        msShader.SetFloat("CellSizeMS", render.CellSizeMS);
+
+        msShader.SetVector("NumChunks", new Vector4(render.NumChunks.x, render.NumChunks.y, render.NumChunks.z, render.NumChunks.w));
+        msShader.SetFloat("CellSize", render.CellSize);
+        msShader.SetInt("NumObjects", render.NumObjects);
     }
 
     public void UpdateSortIterationVariables (ComputeShader ssShader, int blockLen, bool brownPinkSort)

@@ -1,0 +1,110 @@
+#pragma kernel CalcGridDensities // 0
+
+#include "RendererResources.hlsl"
+
+// Marching squares settings
+const int3 NumCellsMS;
+const float CellSizeMS;
+
+// Spatial sort settings
+const int4 NumChunks;
+const float CellSize;
+const int NumObjects;
+
+RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](objectIndex, ChunkKey)
+RWStructuredBuffer<int> StartIndices;
+
+RWStructuredBuffer<Sphere> Spheres;
+
+RWTexture3D<float> GridDensities;
+
+bool ValidChunk(int3 chunk)
+{
+    return chunk.x >= 0 && chunk.x < (int)NumChunks.x &&
+           chunk.y >= 0 && chunk.y < (int)NumChunks.y &&
+           chunk.z >= 0 && chunk.z < (int)NumChunks.z;
+}
+
+int GetChunkKey(int3 chunk)
+{
+    return chunk.x + chunk.y * NumChunks.x + chunk.z * NumChunks.w;
+}
+
+float GetNearDst(float3 pos)
+{
+    uint3 chunk = uint3(pos / CellSize);
+    int chunkKey = GetChunkKey(chunk);
+    int startIndex = StartIndices[chunkKey];
+
+    float nearDstSqr = FLT_MAX;
+    int index = startIndex;
+    while (index < NumObjects && chunkKey == SpatialLookup[index].y)
+    {
+        int sphereIndex = SpatialLookup[index].x;
+
+        float3 dst = pos - Spheres[sphereIndex].pos;
+        float dstSqr = dot2(dst);
+        nearDstSqr = min(nearDstSqr, dstSqr);
+
+        // -- Increment index each iteration - Chunk particle search algorithm --
+
+        index += 1;
+    }
+
+    if (nearDstSqr != FLT_MAX) { return 0.0; }
+
+    float nearDst = sqrt(nearDstSqr);
+
+    return nearDst;
+}
+
+float GetNearDstExpanded(float3 pos, int radius)
+{
+    int3 chunk = pos / CellSize;
+
+    float nearDstSqr = FLT_MAX;
+    for (int x = -radius; x <= radius; x++)
+    {
+        for (int y = -radius; y <= radius; y++)
+        {
+            for (int z = -radius; z <= radius; z++)
+            {
+                int3 curChunk = chunk + int3(x, y, z);
+
+                if (!ValidChunk(curChunk)) {continue;}
+
+                int chunkKey = GetChunkKey(curChunk);
+                int startIndex = StartIndices[chunkKey];
+
+                int index = startIndex;
+                while (index != -1 && chunkKey == SpatialLookup[index].y)
+                {
+                    int sphereIndex = SpatialLookup[index].x;
+
+                    float3 dst = pos - Spheres[sphereIndex].pos;
+                    float dstSqr = dot2(dst);
+                    nearDstSqr = min(nearDstSqr, dstSqr);
+
+                    // -- Increment index each iteration - Chunk particle search algorithm --
+
+                    index += 1;
+                }
+            }
+        }
+    }
+
+    float nearDst = sqrt(nearDstSqr);
+
+    return nearDst;
+}
+
+// Similar to a density map, but cheaper
+[numthreads(TN_MS,TN_MS,TN_MS)]
+void CalcGridDensities (uint3 msCell : SV_DispatchThreadID)
+{
+    float3 pos = msCell * CellSizeMS + .5 * CellSizeMS;
+
+    float nearDst = GetNearDst(pos);
+
+    GridDensities[msCell] = max(1 - nearDst, 0.01);
+}

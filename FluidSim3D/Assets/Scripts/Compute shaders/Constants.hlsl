@@ -6,12 +6,10 @@ static const float PI = 3.1415926;
 
 // --- Simulation ---
 
-static const int TN_test = 0;
+
 static const int TN_PS = 256; // ParticleSim
 static const int TN_RB = 32; // RigidbodySim
 static const int TN_SS_S = 512; // Sort
-static const int TN_MS = 32; // TEMPMarchingSquares
-static const int TN_R = 32; // TEMPRender
 
 static const float SmoothViscosityLaplacianFactor = 45 / PI;
 
@@ -21,12 +19,18 @@ static const float SmoothViscosityLaplacianFactor = 45 / PI;
 static const int TN_RM = 8; // RayMarcher
 static const int TN_PC = 512; // PreCalc
 static const int TN_SS_R = 512; // SpatialSort
+static const int TN_MS = 8; // SpatialSort
 
 
 // --- Textures ---
 
 static const int TN_NG = 8; // NoiseGenerator
 static const int TN_TC = 8; // TextureComposition
+
+
+// --- Data Transfer ---
+
+static const int TN_DT = 512;
 
 
 // --- Other Fixed Constants ---

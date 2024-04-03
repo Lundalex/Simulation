@@ -26,6 +26,7 @@ public class Renderer : MonoBehaviour
     public float3 MinWorldBounds = new(-40.0f, -40.0f, -40.0f);
     public float3 MaxWorldBounds = new(40.0f, 40.0f, 40.0f);
     public float CellSize = 1.0f;
+    public float CellSizeMS = 1.0f;
 
     [Header("Scene objects")]
     public bool RenderTris = true;
@@ -39,8 +40,10 @@ public class Renderer : MonoBehaviour
     public ComputeShader rmShader;
     public ComputeShader pcShader;
     public ComputeShader ssShader;
+    public ComputeShader msShader;
     public ComputeShader ngShader;
     [NonSerialized] public RenderTexture renderTexture; // Texture drawn to screen
+    [NonSerialized] public RenderTexture T_GridDensities;
     public RendererShaderHelper shaderHelper;
     public TextureCreator textureCreator;
     public Simulation sim;
@@ -50,6 +53,7 @@ public class Renderer : MonoBehaviour
     private const int rmShaderThreadSize = 8; // /32
     private const int pcShaderThreadSize = 512; // / 1024
     private const int ssShaderThreadSize = 512; // / 1024
+    private const int msShaderThreadSize = 8; // /~10
 
     // Non-inpector-accessible variables
 
@@ -80,10 +84,11 @@ public class Renderer : MonoBehaviour
     [NonSerialized] public int NumTris;
     [NonSerialized] public int NumObjects_NextPow2;
     [NonSerialized] public int4 NumChunks;
+    [NonSerialized] public int3 NumCellsMS;
     [NonSerialized] public int NumChunksAll;
     [NonSerialized] public float3 ChunkGridOffset;
 
-    void Awake ()
+    public void ScriptSetup ()
     {
         Camera.main.cullingMask = 0;
         FrameCount = 0;
@@ -106,6 +111,10 @@ public class Renderer : MonoBehaviour
         // NoiseGenerator
         shaderHelper.SetNGShaderTextures(ngShader);
         shaderHelper.SetNGSettings(ngShader);
+
+        // Marching Squares
+        shaderHelper.SetMSShaderBuffers(msShader);
+        shaderHelper.SetMSShaderSettings(msShader);
 
         // RayMarcher
         shaderHelper.UpdateRMVariables(rmShader);
@@ -160,6 +169,10 @@ public class Renderer : MonoBehaviour
         NumChunks.w = NumChunks.x * NumChunks.y;
         NumChunksAll = NumChunks.x * NumChunks.y * NumChunks.z;
 
+        NumCellsMS = new(Mathf.CeilToInt(sim.Width / CellSizeMS),
+                        Mathf.CeilToInt(sim.Height / CellSizeMS),
+                        Mathf.CeilToInt(sim.Depth / CellSizeMS));
+
         ChunkGridOffset = new float3(
             Mathf.Max(-MinWorldBounds.x, 0.0f),
             Mathf.Max(-MinWorldBounds.y, 0.0f),
@@ -174,6 +187,9 @@ public class Renderer : MonoBehaviour
 
         ComputeHelper.CreateAppendBuffer<int2>(ref AC_OccupiedChunks, Func.NextPow2(NumObjects * ChunksPerObject));
         ComputeHelper.CreateCountBuffer(ref CB_A);
+
+        TextureHelper.CreateTexture(ref T_GridDensities, NumCellsMS, 3);
+        rmShader.SetTexture(1, "NoiseB", T_GridDensities);
 
         TextureHelper.CreateTexture(ref renderTexture, Resolution, 3);
     }
@@ -275,13 +291,6 @@ public class Renderer : MonoBehaviour
         }
         ComputeHelper.CreateStructuredBuffer<Material2>(ref B_Materials, Materials);
     }
-
-    void RunRMShader()
-    {
-        ComputeHelper.DispatchKernel(rmShader, "TraceRays", Resolution, rmShaderThreadSize);
-
-        if (textureCreator.RenderNoiseTextures) {ComputeHelper.DispatchKernel(rmShader, "RenderNoiseTextures", Resolution, rmShaderThreadSize); }
-    }
     
     void RunSSShader()
     {
@@ -327,6 +336,20 @@ public class Renderer : MonoBehaviour
     {
         ComputeHelper.DispatchKernel(pcShader, "CalcTriNormals", NumTris, pcShaderThreadSize);
         ComputeHelper.DispatchKernel(pcShader, "SetLastRotations", NumTriObjects, pcShaderThreadSize);
+
+
+    }
+
+    void RunMSShader()
+    {
+        ComputeHelper.DispatchKernel(msShader, "CalcGridDensities", NumChunks.xyz, msShaderThreadSize);
+    }
+
+    void RunRMShader()
+    {
+        ComputeHelper.DispatchKernel(rmShader, "TraceRays", Resolution, rmShaderThreadSize);
+
+        if (textureCreator.RenderNoiseTextures) {ComputeHelper.DispatchKernel(rmShader, "RenderNoiseTextures", Resolution, rmShaderThreadSize); }
     }
 
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
@@ -334,6 +357,7 @@ public class Renderer : MonoBehaviour
         // Main program loop
         if (SettingsChanged) { RunPCShader(); SettingsChanged = false; } // PreCalc
         RunSSShader(); // SpatialSort
+        RunMSShader(); // MarchingSquares
         RunRMShader(); // RayMarcher
 
         Graphics.Blit(renderTexture, dest);

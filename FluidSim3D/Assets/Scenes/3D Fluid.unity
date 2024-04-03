@@ -175,7 +175,7 @@ MonoBehaviour:
   NoiseCellSize: 128
   LerpFactor: 0.15
   inputB: 3
-  NoisePixelSize: 0.7
+  NoisePixelSize: 0.8
   RenderNoiseTextures: 1
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
@@ -304,13 +304,13 @@ MonoBehaviour:
   Resolution:
     x: 1920
     y: 1080
-  MaxStepCount: 120
+  MaxStepCount: 140
   RaysPerPixel: 1
   HitThreshold: 0.01
   ScatterProbability: 1
   DefocusStrength: 0
   focalPlaneFactor: 16
-  MaxStepSize: 0.15
+  MaxStepSize: 0.27
   FrameCount: 0
   ChunksPerObject: 60
   MinWorldBounds:
@@ -322,6 +322,7 @@ MonoBehaviour:
     y: 50
     z: 50
   CellSize: 0.15
+  CellSizeMS: 0.5
   RenderTris: 0
   OBJ_Pos:
     x: 2
@@ -385,6 +386,7 @@ MonoBehaviour:
   rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
   pcShader: {fileID: 7200000, guid: 8b6e58497c2f7da409da1927d115d6dc, type: 3}
   ssShader: {fileID: 7200000, guid: 9af24f6caf8c76746826234ef1d4552b, type: 3}
+  msShader: {fileID: 7200000, guid: c8b0c0ed857fbca42a6211171c8e8dc1, type: 3}
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   shaderHelper: {fileID: 868168750}
   textureCreator: {fileID: 473926887}
@@ -441,7 +443,7 @@ MonoBehaviour:
     x: 0
     y: 0
     z: 0
-  renderer: {fileID: 868168749}
+  render: {fileID: 868168749}
   sim: {fileID: 2125271849}
   texture: {fileID: 473926887}
   dtShader: {fileID: 7200000, guid: d1021112b3303574191bcb6a5e085237, type: 3}

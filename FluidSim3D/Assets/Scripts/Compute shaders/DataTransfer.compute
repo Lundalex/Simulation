@@ -2,6 +2,7 @@
 
 #include "Renderer/RendererDataTypes.hlsl"
 #include "Simulation/SimulationDataTypes.hlsl"
+#include "Constants.hlsl"
 
 const uint ParticlesNum;
 const float Radius;
@@ -39,7 +40,7 @@ float3 ApplyTransformTriVertices(float3 rot, float3 a)
     return mul(rotationMatrix, a);
 }
 
-[numthreads(512,1,1)] // TEMP
+[numthreads(TN_DT,1,1)] // TEMP
 void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;

@@ -17,7 +17,6 @@ float3 GetPlaneNormal (float3 a, float3 b, float3 c)
     return normalize(cross(ab, ac));
 }
 
-// Tri normals only calculated one side of each Tri
 [numthreads(TN_PC,1,1)]
 void CalcTriNormals (uint3 id : SV_DispatchThreadID)
 {

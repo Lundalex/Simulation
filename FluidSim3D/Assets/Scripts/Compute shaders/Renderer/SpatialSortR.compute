@@ -28,7 +28,7 @@ const int OC_len;
 AppendStructuredBuffer<int2> OccupiedChunksAPPEND;
 ConsumeStructuredBuffer<int2> OccupiedChunksCONSUME;
 
-RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
+RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](objectIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
 
 RWStructuredBuffer<TriObject> TriObjects;

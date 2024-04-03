@@ -19,12 +19,12 @@ public class TextureCreator : MonoBehaviour
     public ComputeShader rmShader;
     public TextureHelper textureHelper;
 
-    void Awake ()
+    public void ScriptSetup ()
     {
         textureHelper.UpdateScriptTextures(NoiseResolution, 1);
     }
 
-    void Start ()
+    void Start()
     {
         InitNoiseTextures();
     }
@@ -76,6 +76,5 @@ public class TextureCreator : MonoBehaviour
         textureHelper.GaussianBlur(ref voronoi0, NoiseResolution, 3, 5);
 
         rmShader.SetTexture(1, "NoiseA", voronoi0); // Final texture stored in voronoi0
-        rmShader.SetTexture(1, "NoiseB", TextureHelper.CreateTexture(NoiseResolution, 1)); // Nothing to display for NoiseB
     }
 }

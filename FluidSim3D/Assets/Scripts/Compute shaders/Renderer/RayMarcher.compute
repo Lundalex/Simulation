@@ -57,7 +57,7 @@ RWStructuredBuffer<TriObject> TriObjects;
 RWStructuredBuffer<Tri> Tris;
 RWStructuredBuffer<Sphere> Spheres;
 
-RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
+RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](objectIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
 
 // Shader output buffer
@@ -116,7 +116,7 @@ float TriDstSqr( float3 p, float3 a, float3 b, float3 c )
 
 ScanInfo Scan (Ray ray, inout int rngState)
 {
-    float nearDstSqr = MaxStepSize;
+    float nearDstSqr = sqr(MaxStepSize);
     int materialKey = -1;
     float3 normal = float3(0.0, 0.0, 0.0);
 
