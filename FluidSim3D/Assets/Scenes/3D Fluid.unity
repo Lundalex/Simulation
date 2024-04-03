@@ -175,7 +175,7 @@ MonoBehaviour:
   NoiseCellSize: 128
   LerpFactor: 0.15
   inputB: 3
-  NoisePixelSize: 0.4
+  NoisePixelSize: 0.7
   RenderNoiseTextures: 1
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
@@ -519,10 +519,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c4e01cbd809e59f4e9d22e12742b644e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ParticlesNum: 60000
+  ParticlesNum: 65536
   MaxInfluenceRadius: 2
-  TargetDensity: 2
-  PressureMultiplier: 1000
+  TargetDensity: 1.6
+  PressureMultiplier: 1500
   NearPressureMultiplier: 20
   Damping: 0.7
   PassiveDamping: 0

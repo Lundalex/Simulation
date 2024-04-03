@@ -14,21 +14,21 @@
 #include "SimulationResources.hlsl"
 #include "CompositionResources.hlsl"
 
-const int MaxInfluenceRadius;
-const int4 ChunksNum;
-const int ChunksNumAll;
-const int ChunksNumAllNextPow2;
-const int ParticlesNum;
-const int ParticlesNum_NextPow2;
+const uint MaxInfluenceRadius;
+const uint4 ChunksNum;
+const uint ChunksNumAll;
+const uint ChunksNumAllNextPow2;
+const uint ParticlesNum;
+const uint ParticlesNum_NextPow2;
 
 // Per-iteration-set constants
 const bool BrownPinkSort; // True -> BrownSort, False -> PinkSort
-const int SpatialLookupLog2Length;
-const int BlockLen;
+const uint SpatialLookupLog2Length;
+const uint BlockLen;
 
 const bool FrameBufferCycle;
 const bool StepBufferCycle;
-const int Offset;
+const uint Offset;
 
 RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
@@ -38,7 +38,7 @@ RWStructuredBuffer<int> SpringStartIndices_dbA; // Result A
 RWStructuredBuffer<int> SpringStartIndices_dbB; // Result B
 RWStructuredBuffer<int> SpringStartIndices_dbC; // Support
 
-RWStructuredBuffer<PDataStruct> PData;
+RWStructuredBuffer<PData> PDataB;
 
 void SwapInt2(inout int2 a, inout int2 b)
 {
@@ -47,9 +47,11 @@ void SwapInt2(inout int2 a, inout int2 b)
     b = temp;
 }
 
-bool ValidChunk(int ChunkX, int ChunkY, int ChunkZ)
+bool ValidChunk(int3 chunk)
 {
-    return ChunkX >= 0 && ChunkX < ChunksNum.x && ChunkY >= 0 && ChunkY < ChunksNum.y && ChunkZ >= 0 && ChunkZ < ChunksNum.z;
+    return chunk.x >= 0 && chunk.x < (int)ChunksNum.x &&
+           chunk.y >= 0 && chunk.y < (int)ChunksNum.y &&
+           chunk.z >= 0 && chunk.z < (int)ChunksNum.z;
 }
 
 int GetChunkKeyFromPosition(float3 pos)
@@ -59,28 +61,37 @@ int GetChunkKeyFromPosition(float3 pos)
     return chunkKey;
 }
 
+int3 DecomposeChunkKey(int chunkKey)
+{
+    uint chunkX = (uint)chunkKey % ChunksNum.x;
+    uint chunkY = (uint)((uint)chunkKey / ChunksNum.x) % ChunksNum.y;
+    uint chunkZ = (uint)((uint)chunkKey / ChunksNum.w);
+    int3 chunk = int3(chunkX, chunkY, chunkZ);
+
+    return chunk;
+}
+
+int GetChunkKey(int3 chunk)
+{
+    return chunk.x + chunk.y * ChunksNum.x + chunk.z * ChunksNum.w;
+}
+
 int GetNeighboorParticlesNum(int chunkKey)
 {
-    int chunkX = (uint)chunkKey % ChunksNum.x;
-    int chunkY = (int)((uint)chunkKey / ChunksNum.x) % ChunksNum.y;
-    int chunkZ = (int)((uint)chunkKey / ChunksNum.w);
+    int3 baseChunk = DecomposeChunkKey(chunkKey);
 
     int neighboorParticlesNum = 0;
     for (int x = -1; x <= 1; x++)
     {
-        int curChunkX = chunkX + x;
-
         for (int y = -1; y <= 1; y++)
         {
-            int curChunkY = chunkY + y;
-
             for (int z = -1; z <= 1; z++)
             {
-                int curChunkZ = chunkZ + z;
+                int3 curChunk = baseChunk + int3(x, y, z);
 
-                if (ValidChunk(curChunkX, curChunkY, curChunkZ))
+                if (ValidChunk(curChunk))
                 {
-                    int neighboorChunkKey = curChunkX + curChunkY * ChunksNum.x + curChunkZ * ChunksNum.w;
+                    int neighboorChunkKey = GetChunkKey(curChunk);
                     neighboorParticlesNum += SpringCapacities[neighboorChunkKey].x;
                 }
             }
@@ -92,11 +103,11 @@ int GetNeighboorParticlesNum(int chunkKey)
 [numthreads(TN_SS_S,1,1)]
 void CalculateChunkKeys (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
+    uint i = id.x;
     if (i >= ParticlesNum_NextPow2) { return; }
     if (i < ParticlesNum)
     {
-        int chunkKey = GetChunkKeyFromPosition(PData[i].Position);
+        uint chunkKey = GetChunkKeyFromPosition(PDataB[i].Position);
         SpatialLookup[i] = int2(i, chunkKey);
     }
     else
@@ -108,15 +119,15 @@ void CalculateChunkKeys (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_S,1,1)]
 void SortIteration (uint3 id : SV_DispatchThreadID)
 {
-    int lowRef = id.x;
+    uint lowRef = id.x;
     if (lowRef >= ParticlesNum) { return; }
 
-    int relBlock = (int)(2 * lowRef / (uint)BlockLen);
-    int relPos = lowRef % (0.5 * BlockLen);
+    uint relBlock = (int)(2 * lowRef / (uint)BlockLen);
+    uint relPos = lowRef % (0.5 * BlockLen);
 
-    int lowIndex = relBlock * BlockLen + relPos;
+    uint lowIndex = relBlock * BlockLen + relPos;
 
-    int highIndex = BrownPinkSort
+    uint highIndex = BrownPinkSort
     ? relBlock * BlockLen + BlockLen - 1 - relPos
     :relBlock * BlockLen + relPos + (int)(BlockLen * 0.5);
 
@@ -132,7 +143,7 @@ void SortIteration (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_S,1,1)]
 void PrepStartIndices (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
+    uint i = id.x;
 
     // StartIndices[i] = ParticlesNum;
 }
@@ -140,11 +151,11 @@ void PrepStartIndices (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_S,1,1)]
 void PopulateStartIndices (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
+    uint i = id.x;
     if (i >= ParticlesNum) { return; }
     
-    int chunkKey = SpatialLookup[i].y;
-    int LastChunkKey = ParticlesNum;
+    uint chunkKey = SpatialLookup[i].y;
+    uint LastChunkKey = ParticlesNum;
 
     if (i != 0)
     {
@@ -162,12 +173,12 @@ void PopulateChunkSizes (uint3 id : SV_DispatchThreadID)
 {
     int chunkKey = id.x - 1;
 
-    int startIndex = chunkKey == -1
+    uint startIndex = chunkKey == -1
     ? 0
     : StartIndices[chunkKey];
 
-    int neighboorCount = 0;
-    int Index = startIndex; 
+    uint neighboorCount = 0;
+    uint Index = startIndex; 
     while (Index < ParticlesNum && chunkKey == SpatialLookup[Index].y)
     {
         Index += 1;
@@ -181,9 +192,9 @@ void PopulateChunkSizes (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_S,1,1)]
 void PopulateSpringCapacities (uint3 id : SV_DispatchThreadID)
 {
-    int chunkKey = id.x;
+    uint chunkKey = id.x;
 
-    int SpringCapacity = GetNeighboorParticlesNum(chunkKey);
+    uint SpringCapacity = GetNeighboorParticlesNum(chunkKey);
 
     SpringCapacities[chunkKey].y = SpringCapacity;
 }
@@ -191,7 +202,7 @@ void PopulateSpringCapacities (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_S,1,1)]
 void CopySpringCapacities (uint3 id : SV_DispatchThreadID)
 {
-    int chunkKey = id.x;
+    uint chunkKey = id.x;
     if (chunkKey < ChunksNumAll)
     {
         if (FrameBufferCycle)
@@ -208,7 +219,7 @@ void CopySpringCapacities (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_S,1,1)]
 void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
+    uint i = id.x;
     if (i >= ChunksNumAll) { return; }
     // A <-> C
     if (FrameBufferCycle)
@@ -216,7 +227,7 @@ void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
         // A -> C
         if (StepBufferCycle)
         {
-            int curVal = SpringStartIndices_dbA[i];
+            uint curVal = SpringStartIndices_dbA[i];
             if (i >= Offset)
             {
                 curVal += SpringStartIndices_dbA[i - Offset];
@@ -226,7 +237,7 @@ void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
         // C -> A
         else
         {
-            int curVal = SpringStartIndices_dbC[i];
+            uint curVal = SpringStartIndices_dbC[i];
             if (i >= Offset)
             {
                 curVal += SpringStartIndices_dbC[i - Offset];
@@ -240,7 +251,7 @@ void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
         // B -> C
         if (StepBufferCycle)
         {
-            int curVal = SpringStartIndices_dbB[i];
+            uint curVal = SpringStartIndices_dbB[i];
             if (i >= Offset)
             {
                 curVal += SpringStartIndices_dbB[i - Offset];
@@ -250,7 +261,7 @@ void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
         // C -> B
         else
         {
-            int curVal = SpringStartIndices_dbC[i];
+            uint curVal = SpringStartIndices_dbC[i];
             if (i >= Offset)
             {
                 curVal += SpringStartIndices_dbC[i - Offset];
@@ -263,7 +274,7 @@ void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_S,1,1)]
 void CopySpringStartIndicesBuffer (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
+    uint i = id.x;
     // C -> A
     if (FrameBufferCycle)
     {

@@ -88,7 +88,7 @@ public class Simulation : MonoBehaviour
     private bool FrameBufferCycle = true;
     private bool ProgramStarted = false;
 
-    void Start()
+    void Awake ()
     {
         SetConstants();
         InitializeArrays();

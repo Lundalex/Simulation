@@ -5,19 +5,19 @@ public class SimulationShaderHelper : MonoBehaviour
     public void SetPSimShaderBuffers(ComputeShader pSimShader)
     {
         // Kernel PreCalculations
-        pSimShader.SetBuffer(0, "PData", sim.PDataBuffer);
+        pSimShader.SetBuffer(0, "PDataB", sim.PDataBuffer);
         pSimShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
     
         // Kernel PreCalculations
         pSimShader.SetBuffer(1, "SpatialLookup", sim.SpatialLookupBuffer);
         pSimShader.SetBuffer(1, "StartIndices", sim.StartIndicesBuffer);
 
-        pSimShader.SetBuffer(1, "PData", sim.PDataBuffer);
+        pSimShader.SetBuffer(1, "PDataB", sim.PDataBuffer);
         pSimShader.SetBuffer(1, "PTypes", sim.PTypesBuffer);
 
         pSimShader.SetBuffer(2, "ParticleSpringsCombined", sim.ParticleSpringsCombinedBuffer);
 
-        pSimShader.SetBuffer(3, "PData", sim.PDataBuffer);
+        pSimShader.SetBuffer(3, "PDataB", sim.PDataBuffer);
         pSimShader.SetBuffer(3, "PTypes", sim.PTypesBuffer);
         pSimShader.SetBuffer(3, "SpatialLookup", sim.SpatialLookupBuffer);
         pSimShader.SetBuffer(3, "StartIndices", sim.StartIndicesBuffer);
@@ -30,7 +30,7 @@ public class SimulationShaderHelper : MonoBehaviour
         pSimShader.SetBuffer(4, "SpatialLookup", sim.SpatialLookupBuffer);
         pSimShader.SetBuffer(4, "StartIndices", sim.StartIndicesBuffer);
 
-        pSimShader.SetBuffer(4, "PData", sim.PDataBuffer);
+        pSimShader.SetBuffer(4, "PDataB", sim.PDataBuffer);
         pSimShader.SetBuffer(4, "PTypes", sim.PTypesBuffer);
 
         pSimShader.SetBuffer(4, "SpringCapacities", sim.SpringCapacitiesBuffer);
@@ -38,7 +38,7 @@ public class SimulationShaderHelper : MonoBehaviour
         pSimShader.SetBuffer(4, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
         pSimShader.SetBuffer(4, "ParticleSpringsCombined", sim.ParticleSpringsCombinedBuffer);
 
-        pSimShader.SetBuffer(5, "PData", sim.PDataBuffer);
+        pSimShader.SetBuffer(5, "PDataB", sim.PDataBuffer);
         pSimShader.SetBuffer(5, "PTypes", sim.PTypesBuffer);
         pSimShader.SetBuffer(5, "SpringCapacities", sim.SpringCapacitiesBuffer);
     }
@@ -47,12 +47,12 @@ public class SimulationShaderHelper : MonoBehaviour
     {
         sortShader.SetBuffer(0, "SpatialLookup", sim.SpatialLookupBuffer);
 
-        sortShader.SetBuffer(0, "PData", sim.PDataBuffer);
+        sortShader.SetBuffer(0, "PDataB", sim.PDataBuffer);
         sortShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
 
         sortShader.SetBuffer(1, "SpatialLookup", sim.SpatialLookupBuffer);
 
-        sortShader.SetBuffer(1, "PData", sim.PDataBuffer);
+        sortShader.SetBuffer(1, "PDataB", sim.PDataBuffer);
         sortShader.SetBuffer(1, "PTypes", sim.PTypesBuffer);
 
         sortShader.SetBuffer(2, "StartIndices", sim.StartIndicesBuffer);
@@ -60,7 +60,7 @@ public class SimulationShaderHelper : MonoBehaviour
         sortShader.SetBuffer(3, "SpatialLookup", sim.SpatialLookupBuffer);
         sortShader.SetBuffer(3, "StartIndices", sim.StartIndicesBuffer);
         sortShader.SetBuffer(3, "PTypes", sim.PTypesBuffer);
-        sortShader.SetBuffer(3, "PData", sim.PDataBuffer);
+        sortShader.SetBuffer(3, "PDataB", sim.PDataBuffer);
 
         sortShader.SetBuffer(4, "SpatialLookup", sim.SpatialLookupBuffer);
         sortShader.SetBuffer(4, "StartIndices", sim.StartIndicesBuffer);

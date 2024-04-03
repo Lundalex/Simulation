@@ -123,10 +123,10 @@ ScanInfo Scan (Ray ray, inout int rngState)
     float3 offsetRayPos = ray.pos + ChunkGridOffset;
     uint3 chunk = uint3(offsetRayPos / CellSize);
 
-    uint chunkKey = GetChunkKey(chunk);
+    int chunkKey = GetChunkKey(chunk);
     uint startIndex = StartIndices[chunkKey];
 
-    uint Index = startIndex;
+    int Index = startIndex;
     while (Index != -1 && chunkKey == SpatialLookup[Index].y)
     {
         uint objectIndex = SpatialLookup[Index].x;

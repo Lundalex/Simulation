@@ -28,7 +28,7 @@ public class ProgramManager : MonoBehaviour
 
         if (!ProgramStarted)
         {
-            dtShader.SetBuffer(0, "PData", sim.PDataBuffer);
+            dtShader.SetBuffer(0, "PDataB", sim.PDataBuffer);
             dtShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
             dtShader.SetBuffer(0, "Spheres", renderer.B_Spheres);
 

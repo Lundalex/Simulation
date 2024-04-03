@@ -9,8 +9,8 @@ const int ChunksNumAll;
 const int PTypesNum;
 const float3 Rot;
 
-RWStructuredBuffer<PDataStruct> PData;
-RWStructuredBuffer<PTypeStruct> PTypes;
+RWStructuredBuffer<PData> PDataB;
+RWStructuredBuffer<PType> PTypes;
 
 RWStructuredBuffer<Sphere> Spheres;
 
@@ -45,8 +45,8 @@ void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
     uint i = id.x;
     if (i >= ParticlesNum) { return; }
 
-    PDataStruct pData = PData[i];
-    // PTypeStruct pType = PTypes[Extract_PType(pData.LastChunkKey_PType_POrder)];
+    PData pData = PDataB[i];
+    // PType pType = PTypes[Extract_PType(pData.LastChunkKey_PType_POrder)];
     int pTypeIndex = Extract_PType(pData.LastChunkKey_PType_POrder);
 
     Sphere sphere;
@@ -54,7 +54,7 @@ void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
     float3 pos = float3(pData.Position.x, pData.Position.y, pData.Position.z) * .1;
     sphere.pos = ApplyTransformTriVertices(Rot, pos - float3(7.5, 10, 2.5)) + float3(15, 10, 2.5);
     sphere.radius = Radius;
-    sphere.materialKey = pTypeIndex == 1 ? 0 : 1;
+    sphere.materialKey = pTypeIndex == 1 || pTypeIndex == 2 ? 1 : 0;
 
     Spheres[i] = sphere;
 }

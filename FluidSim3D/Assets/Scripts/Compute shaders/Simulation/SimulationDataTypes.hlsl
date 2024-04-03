@@ -1,10 +1,10 @@
-struct SpringStruct
+struct Spring
 {
     int PLinkedA;
     int PLinkedB;
     float RestLength;
 };
-struct PTypeStruct
+struct PType
 {
     int FluidSpringsGroup;
 
@@ -31,7 +31,7 @@ struct PTypeStruct
     float InfluenceRadius;
     float colorG;
 };
-struct PDataStruct
+struct PData
 {
     float3 PredPosition;
     float3 Position;
