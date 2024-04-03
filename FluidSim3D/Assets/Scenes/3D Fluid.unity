@@ -312,7 +312,7 @@ MonoBehaviour:
   focalPlaneFactor: 16.7
   MaxStepSize: 0.15
   FrameCount: 0
-  ChunksPerObject: 273
+  ChunksPerObject: 100
   MinWorldBounds:
     x: 0
     y: 0
@@ -435,7 +435,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   POffsetZ: -15
-  PRadius: 0.1
+  PRadius: 0.05
   PMaterialKey: 1
   renderer: {fileID: 868168749}
   sim: {fileID: 2125271849}

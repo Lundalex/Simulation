@@ -41,45 +41,6 @@ public class SimulationShaderHelper : MonoBehaviour
         pSimShader.SetBuffer(5, "PData", sim.PDataBuffer);
         pSimShader.SetBuffer(5, "PTypes", sim.PTypesBuffer);
         pSimShader.SetBuffer(5, "SpringCapacities", sim.SpringCapacitiesBuffer);
-
-        pSimShader.SetBuffer(6, "PData", sim.PDataBuffer);
-        pSimShader.SetBuffer(6, "PTypes", sim.PTypesBuffer);
-        pSimShader.SetBuffer(6, "SortedStickyRequests", sim.SortedStickyRequestsBuffer);
-    }
-
-    public void SetRbSimShaderBuffers(ComputeShader rbSimShader)
-    {
-        rbSimShader.SetBuffer(0, "RBVector", sim.RBVectorBuffer);
-        rbSimShader.SetBuffer(0, "RBData", sim.RBDataBuffer);
-
-        rbSimShader.SetBuffer(1, "RBVector", sim.RBVectorBuffer);
-        rbSimShader.SetBuffer(1, "RBData", sim.RBDataBuffer);
-        rbSimShader.SetBuffer(1, "TraversedChunksAPPEND", sim.TraversedChunks_AC_Buffer);
-
-        // Maximum reached! (8)
-        rbSimShader.SetBuffer(2, "PData", sim.PDataBuffer);
-        rbSimShader.SetBuffer(2, "PTypes", sim.PTypesBuffer);
-        rbSimShader.SetBuffer(2, "RBData", sim.RBDataBuffer);
-        rbSimShader.SetBuffer(2, "RBVector", sim.RBVectorBuffer);
-        rbSimShader.SetBuffer(2, "SpatialLookup", sim.SpatialLookupBuffer);
-        rbSimShader.SetBuffer(2, "StartIndices", sim.StartIndicesBuffer);
-        rbSimShader.SetBuffer(2, "TraversedChunksCONSUME", sim.TraversedChunks_AC_Buffer);
-        rbSimShader.SetBuffer(2, "StickynessReqsAPPEND", sim.StickynessReqs_AC_Buffer);
-
-        rbSimShader.SetBuffer(3, "RBData", sim.RBDataBuffer);
-        rbSimShader.SetBuffer(3, "RBVector", sim.RBVectorBuffer);
-    }
-
-    public void SetRenderShaderBuffers(ComputeShader renderShader)
-    {
-        renderShader.SetBuffer(0, "SpatialLookup", sim.SpatialLookupBuffer);
-        renderShader.SetBuffer(0, "StartIndices", sim.StartIndicesBuffer);
-
-        renderShader.SetBuffer(0, "PData", sim.PDataBuffer);
-        renderShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
-
-        renderShader.SetBuffer(0, "RBData", sim.RBDataBuffer);
-        renderShader.SetBuffer(0, "RBVector", sim.RBVectorBuffer);
     }
 
     public void SetSortShaderBuffers(ComputeShader sortShader)
@@ -119,26 +80,6 @@ public class SimulationShaderHelper : MonoBehaviour
         sortShader.SetBuffer(8, "SpringStartIndices_dbA", sim.SpringStartIndicesBuffer_dbA);
         sortShader.SetBuffer(8, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
         sortShader.SetBuffer(8, "SpringStartIndices_dbC", sim.SpringStartIndicesBuffer_dbC);
-
-        sortShader.SetBuffer(9, "StickynessReqsCONSUME", sim.StickynessReqs_AC_Buffer);
-        sortShader.SetBuffer(9, "SortedStickyRequests", sim.SortedStickyRequestsBuffer);
-
-        sortShader.SetBuffer(10, "SortedStickyRequests", sim.SortedStickyRequestsBuffer);
-    }
-
-    public void SetMarchingSquaresShaderBuffers(ComputeShader marchingSquaresShader)
-    {
-        marchingSquaresShader.SetBuffer(0, "MSPoints", sim.MSPointsBuffer);
-        marchingSquaresShader.SetBuffer(0, "SpatialLookup", sim.SpatialLookupBuffer);
-        marchingSquaresShader.SetBuffer(0, "StartIndices", sim.StartIndicesBuffer);
-
-        marchingSquaresShader.SetBuffer(0, "PData", sim.PDataBuffer);
-        marchingSquaresShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
-        
-        marchingSquaresShader.SetBuffer(1, "Vertices", sim.VerticesBuffer);
-        marchingSquaresShader.SetBuffer(1, "Triangles", sim.TrianglesBuffer);
-        marchingSquaresShader.SetBuffer(1, "Colors", sim.ColorsBuffer);
-        marchingSquaresShader.SetBuffer(1, "MSPoints", sim.MSPointsBuffer);
     }
 
     public void UpdatePSimShaderVariables(ComputeShader pSimShader)
@@ -162,23 +103,6 @@ public class SimulationShaderHelper : MonoBehaviour
         pSimShader.SetFloat("InteractionTemperaturePower", sim.InteractionTemperaturePower);
     }
 
-    public void UpdateRbSimShaderVariables(ComputeShader rbSimShader)
-    {
-        rbSimShader.SetVector("ChunksNum", new Vector2(sim.ChunksNum.x, sim.ChunksNum.y));
-        rbSimShader.SetInt("Width", sim.Width);
-        rbSimShader.SetInt("Height", sim.Height);
-        rbSimShader.SetInt("ParticlesNum", sim.ParticlesNum);
-        rbSimShader.SetInt("RBodiesNum", sim.RBData.Length);
-        rbSimShader.SetInt("RBVectorNum", sim.RBVector.Length);
-        rbSimShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
-        rbSimShader.SetInt("MaxChunkSearchSafety", sim.MaxChunkSearchSafety);
-
-        rbSimShader.SetFloat("Damping", sim.Damping);
-        rbSimShader.SetFloat("Gravity", sim.Gravity);
-        rbSimShader.SetFloat("RbElasticity", sim.RbElasticity);
-        rbSimShader.SetFloat("BorderPadding", sim.BorderPadding);
-    }
-
     public void UpdateSortShaderVariables(ComputeShader sortShader)
     {
         sortShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
@@ -187,19 +111,5 @@ public class SimulationShaderHelper : MonoBehaviour
         sortShader.SetInt("ChunkNumNextPow2", sim.ChunksNumAllNextPow2);
         sortShader.SetInt("ParticlesNum", sim.ParticlesNum);
         sortShader.SetInt("ParticlesNum_NextPow2", sim.ParticlesNum_NextPow2);
-    }
-
-    public void UpdateMarchingSquaresShaderVariables(ComputeShader marchingSquaresShader)
-    {   
-        marchingSquaresShader.SetInt("MarchW", sim.MarchW);
-        marchingSquaresShader.SetInt("MarchH", sim.MarchH);
-        marchingSquaresShader.SetFloat("MSResolution", sim.MSResolution);
-        marchingSquaresShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
-        marchingSquaresShader.SetVector("ChunksNum", new Vector2(sim.ChunksNum.x, sim.ChunksNum.y));
-        marchingSquaresShader.SetInt("Width", sim.Width);
-        marchingSquaresShader.SetInt("Height", sim.Height);
-        marchingSquaresShader.SetInt("ParticlesNum", sim.ParticlesNum);
-        marchingSquaresShader.SetFloat("MSvalMin", sim.MSvalMin);
-        marchingSquaresShader.SetFloat("TriStorageLength", sim.TriStorageLength);
     }
 }

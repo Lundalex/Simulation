@@ -4,7 +4,6 @@
 #pragma kernel TransferAllSpringData // 3
 #pragma kernel ParticleForces // 4
 #pragma kernel UpdatePositions // 5
-#pragma kernel ConsumeStickynessRequests // 6
 
 #include "SimulationResources.hlsl"
 #include "CompositionResources.hlsl"
@@ -32,7 +31,6 @@ const float InteractionTemperaturePower;
 
 // Per-timestep-set constants
 const float DeltaTime;
-const float SRDeltaTime;
 const bool TransferSpringData;
 
 const float MouseX;
@@ -577,37 +575,5 @@ void UpdatePositions (uint3 id : SV_DispatchThreadID)
                 Set_PType(PData[i].LastChunkKey_PType_POrder, (int)((uint)pTypeIndex / 3) + 1); // Gas -> Liquid
             }
             break;
-    }
-}
-
-[numthreads(512,1,1)]
-void ConsumeStickynessRequests (uint3 id : SV_DispatchThreadID)
-{
-    int i = id.x;
-
-    StickynessRequestStruct stickynessRequest = SortedStickyRequests[i];
-    int pIndex = stickynessRequest.pIndex;
-
-    // This does many "unnecessary" iterations for every thread, but thread management complexity gets reduced
-    float smallestDstSqr = 100;
-    for (int offset = -3; offset <= 3; offset++) {
-        if (offset == 0) continue;
-
-        int idx = i + offset;
-        if (idx > 0 && idx < 4098) {
-            if (SortedStickyRequests[idx].pIndex == pIndex) {
-                if (SortedStickyRequests[idx].absDstToLineSqr < smallestDstSqr) {
-                    smallestDstSqr = SortedStickyRequests[idx].absDstToLineSqr;
-                }
-            }
-        }
-    }
-
-    if (stickynessRequest.absDstToLineSqr <= smallestDstSqr) {
-        PDataStruct PData_i = PData[pIndex];
-        PTypeStruct PType_i = PTypes[Extract_PType(PData_i.LastChunkKey_PType_POrder)];
-        float2 stickynessForce = StickynessForce(PData_i, PType_i, stickynessRequest);
-    
-        PData[pIndex].Velocity += stickynessForce * DeltaTime;  
     }
 }

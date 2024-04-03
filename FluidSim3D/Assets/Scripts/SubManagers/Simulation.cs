@@ -14,7 +14,6 @@ public class Simulation : MonoBehaviour
     public float NearPressureMultiplier = 12.0f;
     [Range(0, 1)] public float Damping = 0.7f;
     [Range(0, 3.0f)] public float PassiveDamping = 0.0f;
-    [Range(0, 1)] public float RbElasticity = 0.645f;
     [Range(0, 0.1f)] public float LookAheadFactor = 0.017f;
     [Range(0, 5.0f)] public float StateThresholdPadding = 3.0f;
     public float Viscosity = 1.5f;
@@ -22,12 +21,8 @@ public class Simulation : MonoBehaviour
     public float TolDeformation = 0.0f;
     public float Plasticity = 3.0f;
     public float Gravity = 5.0f;
-    public float RbPStickyRadius = 2.0f;
-    public float RbPStickyness = 1.0f;
+    public float SpringCapacitySafety;
     [Range(0, 3)] public int MaxChunkSearchSafety = 1;
-    public float StickynessCapacitySafety = 0.5f; // Avg stickyness requests per particle should not exceed this value
-    public int SpringCapacitySafety = 150; // Avg springs per particle should not exceed this value
-    public int TriStorageLength = 4; // TEMP
 
     [Header("Boundrary settings")]
     public int Width = 300;
@@ -40,13 +35,7 @@ public class Simulation : MonoBehaviour
     public bool RenderMarchingSquares = false;
     public float TimeStep = 0.02f;
     public float ProgramSpeed = 2.0f;
-    public float VisualParticleRadii = 0.4f;
-    public float RBRenderThickness = 0.5f;
     public int TimeStepsPerRender = 3;
-    public float MSvalMin = 0.41f; // TEMP
-    public int MSResolution = 3;
-    public int MarchW = 100;
-    public int MarchH = 66;
 
     [Header("Interaction settings")]
     public float MaxInteractionRadius = 40.0f;
@@ -57,24 +46,14 @@ public class Simulation : MonoBehaviour
     [Header("References")]
     public SimulationShaderHelper shaderHelper;
     public ComputeShader pSimShader;
-    public ComputeShader rbSimShader;
     public ComputeShader sortShader;
-    public ComputeShader marchingSquaresShader;
 
     // Non-inpector-accessible variables
 
     // ThreadSize settings for compute shaders
     [NonSerialized] public const int renderShaderThreadSize = 32; // /32, AxA thread groups
     [NonSerialized] public const int pSimShaderThreadSize = 512; // /1024
-    [NonSerialized] public const int rbSimShaderThreadSize = 32; // /1024
     [NonSerialized] public const int sortShaderThreadSize = 512; // /1024
-    [NonSerialized] public const int marchingSquaresShaderThreadSize = 512; // /1024
-
-    // Marching Squares - Buffers
-    public ComputeBuffer VerticesBuffer;
-    public ComputeBuffer TrianglesBuffer;
-    public ComputeBuffer ColorsBuffer;
-    public ComputeBuffer MSPointsBuffer;
 
     // Bitonic mergesort
     public ComputeBuffer SpatialLookupBuffer;
@@ -92,56 +71,29 @@ public class Simulation : MonoBehaviour
     public ComputeBuffer PDataBuffer;
     public ComputeBuffer PTypesBuffer;
 
-    // Rigid bodies
-    public ComputeBuffer RBVectorBuffer;
-    public ComputeBuffer RBDataBuffer;
-    public ComputeBuffer TraversedChunks_AC_Buffer;
-    public ComputeBuffer StickynessReqs_AC_Buffer;
-    public ComputeBuffer SortedStickyRequestsBuffer;
-    public ComputeBuffer StickyRequestsResult_AC_Buffer;
-    public ComputeBuffer TCCountBuffer;
-    public ComputeBuffer SRCountBuffer;
-
     // Constants
     [NonSerialized] public int MaxInfluenceRadiusSqr;
     [NonSerialized] public float InvMaxInfluenceRadius;
-    [NonSerialized] public float MarchScale;
     [NonSerialized] public int2 ChunksNum;
     [NonSerialized] public int ChunksNumAll;
     [NonSerialized] public int ChunksNumAllNextPow2;
-    [NonSerialized] public int MSLen;
-    [NonSerialized] public int TraversedChunksCount;
-    [NonSerialized] public int ParticleSpringsCombinedHalfLength;
     [NonSerialized] public int ParticlesNum_NextPow2;
     [NonSerialized] public int ParticlesNum_NextLog2;
-
-    // Private references
-    private Mesh marchingSquaresMesh;
+    [NonSerialized] public int ParticleSpringsCombinedHalfLength;
 
     // Particle data
     private PDataStruct[] PData;
     [NonSerialized] public PTypeStruct[] PTypes;
 
-    // Rigid Bodies - Properties
-    public RBVectorStruct[] RBVector;
-    public RBDataStruct[] RBData;
-    private int TCCount;
-
-    // Marching Squares - Buffer retrieval
-    private Vector3[] vertices;
-    private int[] triangles;
-
     // Other
     private float DeltaTime;
-    private const int CalcStickyRequestsFrequency = 3;
-    private bool DoCalcStickyRequests = true;
     private bool ProgramStarted = false;
 
     void Start()
     {
-        InitializeSetArrays();
         SetConstants();
         InitializeArrays();
+        SetPTypesData();
 
         for (int i = 0; i < ParticlesNum; i++) {
             PData[i].Position = Utils.GetParticleSpawnPosition(i, ParticlesNum, Width, Height, SpawnDims);
@@ -149,14 +101,10 @@ public class Simulation : MonoBehaviour
 
         InitializeBuffers();
         shaderHelper.SetPSimShaderBuffers(pSimShader);
-        shaderHelper.SetRbSimShaderBuffers(rbSimShader);
         shaderHelper.SetSortShaderBuffers(sortShader);
-        shaderHelper.SetMarchingSquaresShaderBuffers(marchingSquaresShader);
 
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
-        shaderHelper.UpdateRbSimShaderVariables(rbSimShader);
         shaderHelper.UpdateSortShaderVariables(sortShader);
-        shaderHelper.UpdateMarchingSquaresShaderVariables(marchingSquaresShader);
 
         ProgramStarted = true;
     }
@@ -172,28 +120,9 @@ public class Simulation : MonoBehaviour
         {
             pSimShader.SetBool("TransferSpringData", i == 0);
 
-            RunPSimShader(i);
-
-            // Stickyness requests
-            if (i == 1) {
-                DoCalcStickyRequests = true;
-                rbSimShader.SetInt("DoCalcStickyRequests", 1);
-                GPUSortStickynessRequests();
-                ComputeHelper.DispatchKernel (pSimShader, "ConsumeStickynessRequests", 4096, pSimShaderThreadSize);
-            }
-            else {
-                DoCalcStickyRequests = false;
-                rbSimShader.SetInt("DoCalcStickyRequests", 0);
-            }
-
-            RunRbSimShader();
+            RunPSimShader();
 
             ComputeHelper.DispatchKernel (pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize);
-            
-            if (RenderMarchingSquares)
-            {
-                RunMarchingSquaresShader();
-            }
         }
     }
 
@@ -212,9 +141,7 @@ public class Simulation : MonoBehaviour
         PTypesBuffer.SetData(PTypes);
 
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
-        shaderHelper.UpdateRbSimShaderVariables(rbSimShader);
         shaderHelper.UpdateSortShaderVariables(sortShader);
-        shaderHelper.UpdateMarchingSquaresShaderVariables(marchingSquaresShader);
     }
     
     public void UpdateShaderTimeStep()
@@ -226,15 +153,10 @@ public class Simulation : MonoBehaviour
         bool2 mousePressed = Utils.GetMousePressed();
 
         pSimShader.SetFloat("DeltaTime", DeltaTime);
-        pSimShader.SetFloat("SRDeltaTime", DeltaTime * CalcStickyRequestsFrequency);
         pSimShader.SetFloat("MouseX", mouseWorldPos.x);
         pSimShader.SetFloat("MouseY", mouseWorldPos.y);
         pSimShader.SetBool("LMousePressed", mousePressed.x);
         pSimShader.SetBool("RMousePressed", mousePressed.y);
-
-        rbSimShader.SetFloat("DeltaTime", DeltaTime);
-
-        rbSimShader.SetInt("DoCalcStickyRequests", DoCalcStickyRequests ? 1 : 0);
 
         FrameBufferCycle = !FrameBufferCycle;
         sortShader.SetBool("FrameBufferCycle", FrameBufferCycle);
@@ -258,30 +180,8 @@ public class Simulation : MonoBehaviour
         ChunksNum.x = Width / MaxInfluenceRadius;
         ChunksNum.y = Height / MaxInfluenceRadius;
         ChunksNumAll = ChunksNum.x * ChunksNum.y;
-        MarchW = Width / MSResolution;
-        MarchH = Height / MSResolution;
-        MSLen = MarchW * MarchH * TriStorageLength * 3;
-        ParticleSpringsCombinedHalfLength = ParticlesNum * SpringCapacitySafety / 2;
         ParticlesNum_NextPow2 = Func.NextPow2(ParticlesNum);
-
-        for (int i = 0; i < RBData.Length; i++)
-        {
-            RBData[i].StickynessRangeSqr = RBData[i].StickynessRange*RBData[i].StickynessRange;
-
-            float furthestDstSqr = 0;
-            int startIndex = RBData[i].LineIndices.x;
-            int endIndex = RBData[i].LineIndices.y;
-            for (int j = startIndex; j <= endIndex; j++)
-            {
-                Vector2 dst = RBVector[j].Position - RBData[i].Position;
-                float absDstSqr = 2*dst.sqrMagnitude;
-                if (absDstSqr > furthestDstSqr)
-                {
-                    furthestDstSqr = absDstSqr;
-                }
-            }
-            RBData[i].MaxDstSqr = furthestDstSqr;
-        }
+        ParticleSpringsCombinedHalfLength = (int)(ParticlesNum * SpringCapacitySafety * 0.5);
     }
 
     void SetPTypesData()
@@ -456,130 +356,6 @@ public class Simulation : MonoBehaviour
         };
     }
 
-    void InitializeSetArrays()
-    {
-        SetPTypesData();
-
-        RBData = new RBDataStruct[2];
-        RBData[0] = new RBDataStruct
-        {
-            Position = new float2(140f, 100f),
-            Velocity = new float2(0.0f, 0.0f),
-            NextPos = new float2(140f, 100f),
-            NextVel = new float2(0.0f, 0.0f),
-            NextAngImpulse = 0f,
-            AngularImpulse = 0.0f,
-            Stickyness = 6f,
-            StickynessRange = 6f,
-            StickynessRangeSqr = 16f,
-            Mass = 200f,
-            WallCollision = 0,
-            Stationary = 1,
-            LineIndices = new int2(0, 8)
-        };
-        RBData[1] = new RBDataStruct
-        {
-            Position = new float2(50f, 100f),
-            Velocity = new float2(0.0f, 0.0f),
-            NextPos = new float2(50f, 100f),
-            NextVel = new float2(0.0f, 0.0f),
-            NextAngImpulse = 0f,
-            AngularImpulse = 0.0f,
-            Stickyness = 16f,
-            StickynessRange = 4f,
-            StickynessRangeSqr = 16f,
-            Mass = 200f,
-            WallCollision = 0,
-            Stationary = 1,
-            LineIndices = new int2(9, 17)
-        };
-        // RBData[1] = new RBDataStruct
-        // {
-        //     Position = new float2(30f, 100f),
-        //     Velocity = new float2(0.0f, 0.0f),
-        //     LineIndices = new int2(4, 8)
-        // };
-
-        // RBVector = new RBVectorStruct[4];
-        // RBVector[0] = new RBVectorStruct { Position = new float2(10f, 10f), ParentRBIndex = 0 };
-        // RBVector[1] = new RBVectorStruct { Position = new float2(30f, 30f), ParentRBIndex = 0 };
-        // RBVector[2] = new RBVectorStruct { Position = new float2(60f, 10f), ParentRBIndex = 0 };
-        // RBVector[3] = new RBVectorStruct { Position = new float2(10f, 10f), ParentRBIndex = 0 };
-
-        // // LARGE TRIANGLE
-        // RBVector = new RBVectorStruct[5];
-        // float2 somevector = new float2(-20f, -20f);
-        // RBVector[0] = new RBVectorStruct { Position = new float2(3f, 3f) * 3, LocalPosition = new float2(3f, 3f) * 3-somevector, ParentImpulse = new float3(0.0f, 0.0f, 0.0f), WallCollision = 0, ParentRBIndex = 0 };
-        // RBVector[1] = new RBVectorStruct { Position = new float2(40f, 10f) * 3, LocalPosition = new float2(40f, 10f) * 3-somevector, ParentImpulse = new float3(0.0f, 0.0f, 0.0f), WallCollision = 0, ParentRBIndex = 0 };
-        // RBVector[2] = new RBVectorStruct { Position = new float2(18f, 20f) * 3, LocalPosition = new float2(18f, 20f) * 3-somevector, ParentImpulse = new float3(0.0f, 0.0f, 0.0f), WallCollision = 0, ParentRBIndex = 0 };
-        // RBVector[3] = new RBVectorStruct { Position = new float2(8f, 20f) * 3, LocalPosition = new float2(8f, 20f) * 3-somevector, ParentImpulse = new float3(0.0f, 0.0f, 0.0f), WallCollision = 0, ParentRBIndex = 0 };
-        // RBVector[4] = new RBVectorStruct { Position = new float2(3f, 3f) * 3, LocalPosition = new float2(3f, 3f) * 3-somevector, ParentImpulse = new float3(0.0f, 0.0f, 0.0f), WallCollision = 0, ParentRBIndex = 0 };
-
-        // BUCKET
-        RBVector = new RBVectorStruct[18];
-        RBVector[0] = new RBVectorStruct { Position = new float2(10f, 20f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[1] = new RBVectorStruct { Position = new float2(50f, 20f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[2] = new RBVectorStruct { Position = new float2(50f, 50f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[3] = new RBVectorStruct { Position = new float2(40f, 50f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[4] = new RBVectorStruct { Position = new float2(39f, 30f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[5] = new RBVectorStruct { Position = new float2(21f, 30f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[6] = new RBVectorStruct { Position = new float2(20f, 50f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[7] = new RBVectorStruct { Position = new float2(10f, 50f) * 1.5f, ParentRBIndex = 0 };
-        RBVector[8] = new RBVectorStruct { Position = new float2(10f, 20f) * 1.5f, ParentRBIndex = 0 };
-
-        // BUCKET
-        RBVector[9] = new RBVectorStruct { Position = new float2(10f, 20f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[10] = new RBVectorStruct { Position = new float2(50f, 20f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[11] = new RBVectorStruct { Position = new float2(50f, 50f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[12] = new RBVectorStruct { Position = new float2(40f, 50f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[13] = new RBVectorStruct { Position = new float2(39f, 30f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[14] = new RBVectorStruct { Position = new float2(21f, 30f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[15] = new RBVectorStruct { Position = new float2(20f, 50f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[16] = new RBVectorStruct { Position = new float2(10f, 50f) * 1.5f, ParentRBIndex = 1 };
-        RBVector[17] = new RBVectorStruct { Position = new float2(10f, 20f) * 1.5f, ParentRBIndex = 1 };
-        // // HEXAGON
-        // RBVector = new RBVectorStruct[9];
-        // RBVector[8] = new RBVectorStruct { Position = new float2(2f, 1f) * 5, ParentRBIndex = 0 };
-        // RBVector[7] = new RBVectorStruct { Position = new float2(1f, 3f) * 5, ParentRBIndex = 0 };
-        // RBVector[6] = new RBVectorStruct { Position = new float2(2f, 5f) * 5, ParentRBIndex = 0 };
-        // RBVector[5] = new RBVectorStruct { Position = new float2(2f, 6f) * 5, ParentRBIndex = 0 };
-        // RBVector[4] = new RBVectorStruct { Position = new float2(6f, 5f) * 5, ParentRBIndex = 0 };
-        // RBVector[3] = new RBVectorStruct { Position = new float2(7f, 3f) * 5, ParentRBIndex = 0 };
-        // RBVector[2] = new RBVectorStruct { Position = new float2(6f, 1f) * 5, ParentRBIndex = 0 };
-        // RBVector[1] = new RBVectorStruct { Position = new float2(4f, 0f) * 5, ParentRBIndex = 0 };
-        // RBVector[0] = new RBVectorStruct { Position = new float2(2f, 1f) * 5, ParentRBIndex = 0 };
-
-        // // BOAT - Requires rotation by 180 degrees (AngImpulse = pi at start)
-        // float2 somevec = new float2(0.5f, -3) * 5;
-        // RBVector = new RBVectorStruct[21];
-        // RBVector[0] = new RBVectorStruct { Position = new float2(5f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[1] = new RBVectorStruct { Position = new float2(4.71f, 1.71f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[2] = new RBVectorStruct { Position = new float2(4.04f, 3.24f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[3] = new RBVectorStruct { Position = new float2(3.04f, 4.43f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[4] = new RBVectorStruct { Position = new float2(1.76f, 5.24f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[5] = new RBVectorStruct { Position = new float2(0.29f, 5.65f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[6] = new RBVectorStruct { Position = new float2(-1.29f, 5.65f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[7] = new RBVectorStruct { Position = new float2(-2.76f, 5.24f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[8] = new RBVectorStruct { Position = new float2(-4.04f, 4.43f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[9] = new RBVectorStruct { Position = new float2(-5.04f, 3.24f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[10] = new RBVectorStruct { Position = new float2(-5.71f, 1.71f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[11] = new RBVectorStruct { Position = new float2(-6f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[12] = new RBVectorStruct { Position = new float2(-5.29f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[13] = new RBVectorStruct { Position = new float2(-4.57f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[14] = new RBVectorStruct { Position = new float2(-3.86f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[15] = new RBVectorStruct { Position = new float2(-3.14f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[16] = new RBVectorStruct { Position = new float2(-2.43f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[17] = new RBVectorStruct { Position = new float2(-1.71f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[18] = new RBVectorStruct { Position = new float2(-1f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[19] = new RBVectorStruct { Position = new float2(0f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // RBVector[20] = new RBVectorStruct { Position = new float2(5f, 0f) * 5 + somevec, ParentRBIndex = 0 };
-        // for (int i = 0; i < 21; i++)
-        // {
-        //     RBVector[i].Position.y *= 0.5f * 1.2f;
-        //     RBVector[i].Position.x *= 1.4f * 1.2f;
-        // }
-    }
-
     void InitializeArrays()
     {
         PData = new PDataStruct[ParticlesNum];
@@ -630,25 +406,7 @@ public class Simulation : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbA, ChunksNumAll);
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbB, ChunksNumAll);
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbC, ChunksNumAll);
-        ComputeHelper.CreateStructuredBuffer<SpringStruct>(ref ParticleSpringsCombinedBuffer, ParticlesNum * SpringCapacitySafety);
-
-        ComputeHelper.CreateStructuredBuffer<int3>(ref VerticesBuffer, MSLen);
-        ComputeHelper.CreateStructuredBuffer<int>(ref TrianglesBuffer, MSLen);
-        ComputeHelper.CreateStructuredBuffer<float>(ref MSPointsBuffer, MSLen);
-        ComputeHelper.CreateStructuredBuffer<float4>(ref ColorsBuffer, MSLen); // float4 for RGBA
-
-        ComputeHelper.CreateStructuredBuffer<RBDataStruct>(ref RBDataBuffer, RBData);
-        ComputeHelper.CreateStructuredBuffer<RBVectorStruct>(ref RBVectorBuffer, RBVector);
-
-
-        ComputeHelper.CreateCountBuffer(ref TCCountBuffer);
-        ComputeHelper.CreateCountBuffer(ref SRCountBuffer);
-
-        ComputeHelper.CreateAppendBuffer<int3>(ref TraversedChunks_AC_Buffer, 4096);
-
-        ComputeHelper.CreateStructuredBuffer<StickynessRequestStruct>(ref SortedStickyRequestsBuffer, 4096);
-        ComputeHelper.CreateAppendBuffer<StickynessRequestStruct>(ref StickynessReqs_AC_Buffer, 4096);
-        ComputeHelper.CreateAppendBuffer<StickynessRequestStruct>(ref StickyRequestsResult_AC_Buffer, 4096);
+        ComputeHelper.CreateStructuredBuffer<SpringStruct>(ref ParticleSpringsCombinedBuffer, (int)(ParticlesNum * SpringCapacitySafety));
     }
 
     void GPUSortChunkLookUp()
@@ -705,122 +463,25 @@ public class Simulation : MonoBehaviour
         if (StepBufferCycle == true) { ComputeHelper.DispatchKernel (sortShader, "CopySpringStartIndicesBuffer", threadGroupsNum); } // copy to result buffer if necessary
     }
 
-    void GPUSortStickynessRequests()
-    {
-        int StickyRequestsCount = Func.NextPow2(4096);
-        if (StickyRequestsCount == 0) {return;}
-        
-        int threadGroupsNum = Utils.GetThreadGroupsNum(StickyRequestsCount, 512);
-        int threadGroupsNumHalfCeil = Mathf.CeilToInt(threadGroupsNum * 0.5f);
-
-        ComputeHelper.DispatchKernel (sortShader, "PopulateSortedStickyRequests", threadGroupsNum);
-
-        int len = StickyRequestsCount;
-        int lenLog2 = Func.Log2(len);
-        sortShader.SetInt("SortedStickyRequestsLength", len);
-        sortShader.SetInt("SortedStickyRequestsLog2Length", lenLog2);
-
-        int basebBlockLen = 2;
-        while (basebBlockLen != 2*len) // basebBlockLen = len is the last outer iteration
-        {
-            int blockLen = basebBlockLen;
-            while (blockLen != 1) // BlockLen = 2 is the last inner iteration
-            {
-                int blocksNum = len / blockLen;
-                bool BrownPinkSort = blockLen == basebBlockLen;
-
-                sortShader.SetInt("SRBlockLen", blockLen);
-                sortShader.SetInt("SRblocksNum", blocksNum);
-                sortShader.SetBool("SRBrownPinkSort", BrownPinkSort);
-
-                ComputeHelper.DispatchKernel (sortShader, "SRSortIteration", threadGroupsNumHalfCeil);
-
-                blockLen /= 2;
-            }
-            basebBlockLen *= 2;
-        }
-    }
-
-    void RunPSimShader(int step)
+    void RunPSimShader()
     {
         ComputeHelper.DispatchKernel (pSimShader, "PreCalculations", ParticlesNum, pSimShaderThreadSize);
         ComputeHelper.DispatchKernel (pSimShader, "CalculateDensities", ParticlesNum, pSimShaderThreadSize);
-
-        if (step == 0)
-        {
-            ComputeHelper.DispatchKernel (pSimShader, "PrepSpringData", ParticleSpringsCombinedHalfLength, pSimShaderThreadSize);
-            ComputeHelper.DispatchKernel (pSimShader, "TransferAllSpringData", ParticleSpringsCombinedHalfLength, pSimShaderThreadSize);
-        }
-
         ComputeHelper.DispatchKernel (pSimShader, "ParticleForces", ParticlesNum, pSimShaderThreadSize);
-    }
-
-    void RunRbSimShader()
-    {
-        if (RBVector.Length > 1) 
-        {
-            ComputeHelper.DispatchKernel (rbSimShader, "ApplyLocalAngularRotation", RBVector.Length, rbSimShaderThreadSize);
-
-            TraversedChunks_AC_Buffer.SetCounterValue(0);
-
-            ComputeHelper.DispatchKernel (rbSimShader, "PopulateTraversedChunks", RBVector.Length-1, rbSimShaderThreadSize);
-
-            if (TraversedChunksCount == 0)
-            {
-                TCCount = ComputeHelper.GetAppendBufferCount(TraversedChunks_AC_Buffer, TCCountBuffer);
-                TraversedChunksCount = (int)Math.Ceiling(TCCount * (1+StickynessCapacitySafety));
-            }
-
-            if (DoCalcStickyRequests) {
-                StickynessReqs_AC_Buffer.SetCounterValue(0);
-            }
-
-            ComputeHelper.DispatchKernel (rbSimShader, "ResolveLineCollisions", TraversedChunksCount, rbSimShaderThreadSize);
-            ComputeHelper.DispatchKernel (rbSimShader, "RBForces", RBVector.Length, rbSimShaderThreadSize);
-        }
-    }
-
-    void RunMarchingSquaresShader()
-    {
-        VerticesBuffer.SetData(vertices);
-        TrianglesBuffer.SetData(triangles);
-
-        ComputeHelper.DispatchKernel (marchingSquaresShader, "CalculateGridValues", new int2(MarchW, MarchH), 1);
-        ComputeHelper.DispatchKernel (marchingSquaresShader, "GenerateMeshData", new int2(MarchW-1, MarchH-1), 1);
-
-        VerticesBuffer.GetData(vertices);
-        TrianglesBuffer.GetData(triangles);
-
-        marchingSquaresMesh.vertices = vertices;
-        marchingSquaresMesh.triangles = triangles;
-
-        marchingSquaresMesh.RecalculateNormals();
     }
 
     void OnDestroy()
     {
         ComputeHelper.Release(
-            SpatialLookupBuffer, 
-            StartIndicesBuffer, 
-            VerticesBuffer,
-            TrianglesBuffer,
-            ColorsBuffer,
-            MSPointsBuffer,
+            SpatialLookupBuffer,
+            StartIndicesBuffer,
             PDataBuffer,
             PTypesBuffer,
             SpringCapacitiesBuffer,
             SpringStartIndicesBuffer_dbA,
             SpringStartIndicesBuffer_dbB,
             SpringStartIndicesBuffer_dbC,
-            ParticleSpringsCombinedBuffer,
-            RBDataBuffer,
-            RBVectorBuffer,
-            TraversedChunks_AC_Buffer,
-            TCCountBuffer,
-            SRCountBuffer,
-            StickynessReqs_AC_Buffer,
-            SortedStickyRequestsBuffer,
-            StickyRequestsResult_AC_Buffer
+            ParticleSpringsCombinedBuffer
         );
     }
 }
