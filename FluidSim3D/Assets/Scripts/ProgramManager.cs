@@ -6,9 +6,10 @@ using Resources;
 
 public class ProgramManager : MonoBehaviour
 {
-    public float POffsetZ;
+    public int TimeStepsPerRenderFrame;
+    public float RotationSpeed;
     public float PRadius;
-    public int PMaterialKey;
+    public float3 Rot;
     public new Renderer renderer;
     public Simulation sim;
     public TextureCreator texture;
@@ -23,7 +24,7 @@ public class ProgramManager : MonoBehaviour
 
     void Update()
     {
-        sim.RunTimeSteps();
+        sim.RunTimeSteps(TimeStepsPerRenderFrame);
 
         if (!ProgramStarted)
         {
@@ -31,15 +32,15 @@ public class ProgramManager : MonoBehaviour
             dtShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
             dtShader.SetBuffer(0, "Spheres", renderer.B_Spheres);
 
-            dtShader.SetFloat("ParticlesNum", sim.ParticlesNum);
-            dtShader.SetFloat("OffsetZ", POffsetZ);
-            dtShader.SetFloat("Radius", PRadius);
-            dtShader.SetFloat("MaterialKey", PMaterialKey);
-            dtShader.SetFloat("ChunksNumAll", sim.ChunksNumAll);
-            dtShader.SetFloat("PTypesNum", sim.PTypes.Length);
-
             ProgramStarted = !ProgramStarted;
         }
+
+        dtShader.SetFloat("ParticlesNum", sim.ParticlesNum);
+        dtShader.SetFloat("Radius", PRadius);
+        dtShader.SetFloat("ChunksNumAll", sim.ChunksNumAll);
+        dtShader.SetFloat("PTypesNum", sim.PTypes.Length);
+        Rot.y += RotationSpeed * Time.deltaTime;
+        dtShader.SetVector("Rot", new Vector3(Rot.x, Rot.y, Rot.z));
 
         ComputeHelper.DispatchKernel(dtShader, "TransferParticlePositionData", sim.ParticlesNum, dtShaderThreadSize);
         

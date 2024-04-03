@@ -3,12 +3,11 @@
 #include "Renderer/RendererDataTypes.hlsl"
 #include "Simulation/SimulationDataTypes.hlsl"
 
-const int ParticlesNum;
-const float OffsetZ;
+const uint ParticlesNum;
 const float Radius;
-const int MaterialKey;
 const int ChunksNumAll;
 const int PTypesNum;
+const float3 Rot;
 
 RWStructuredBuffer<PDataStruct> PData;
 RWStructuredBuffer<PTypeStruct> PTypes;
@@ -18,6 +17,26 @@ RWStructuredBuffer<Sphere> Spheres;
 int Extract_PType(int LastChunkKey_PType_POrder)
 {
     return ((uint)LastChunkKey_PType_POrder % (ChunksNumAll * PTypesNum)) / ChunksNumAll;
+}
+
+float3 ApplyTransformTriVertices(float3 rot, float3 a)
+{
+    float cosX = cos(rot.x);
+    float sinX = sin(rot.x);
+    float cosY = cos(rot.y);
+    float sinY = sin(rot.y);
+    float cosZ = cos(rot.z);
+    float sinZ = sin(rot.z);
+
+    // Combine rotation matrices into a single matrix
+    float3x3 rotationMatrix = float3x3(
+        cosY * cosZ,                             cosY * sinZ,                           -sinY,
+        sinX * sinY * cosZ - cosX * sinZ,   sinX * sinY * sinZ + cosX * cosZ,  sinX * cosY,
+        cosX * sinY * cosZ + sinX * sinZ,   cosX * sinY * sinZ - sinX * cosZ,  cosX * cosY
+    );
+
+    // Apply the combined rotation matrix to each vertex
+    return mul(rotationMatrix, a);
 }
 
 [numthreads(512,1,1)] // TEMP
@@ -32,7 +51,8 @@ void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
 
     Sphere sphere;
 
-    sphere.pos = float3(pData.Position.x, pData.Position.y * 1.5, OffsetZ) * .1;
+    float3 pos = float3(pData.Position.x, pData.Position.y, pData.Position.z) * .1;
+    sphere.pos = ApplyTransformTriVertices(Rot, pos - float3(7.5, 10, 2.5)) + float3(15, 10, 2.5);
     sphere.radius = Radius;
     sphere.materialKey = pTypeIndex == 1 ? 0 : 1;
 

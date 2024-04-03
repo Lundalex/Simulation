@@ -27,7 +27,7 @@ public class Simulation : MonoBehaviour
     [Header("Boundrary settings")]
     public int Width = 300;
     public int Height = 200;
-    public int SpawnDims = 160; // A x A
+    public int Depth = 50;
     public float BorderPadding = 4.0f;
 
     [Header("Render settings")]
@@ -35,7 +35,7 @@ public class Simulation : MonoBehaviour
     public bool RenderMarchingSquares = false;
     public float TimeStep = 0.02f;
     public float ProgramSpeed = 2.0f;
-    public int TimeStepsPerRender = 3;
+    public int SubTimeStepsNum = 3;
 
     [Header("Interaction settings")]
     public float MaxInteractionRadius = 40.0f;
@@ -52,7 +52,7 @@ public class Simulation : MonoBehaviour
 
     // ThreadSize settings for compute shaders
     [NonSerialized] public const int renderShaderThreadSize = 32; // /32, AxA thread groups
-    [NonSerialized] public const int pSimShaderThreadSize = 512; // /1024
+    [NonSerialized] public const int pSimShaderThreadSize = 256; // /1024
     [NonSerialized] public const int sortShaderThreadSize = 512; // /1024
 
     // Bitonic mergesort
@@ -61,7 +61,6 @@ public class Simulation : MonoBehaviour
 
     // Inter-particle springs
     public ComputeBuffer SpringCapacitiesBuffer;
-    private bool FrameBufferCycle = true;
     public ComputeBuffer SpringStartIndicesBuffer_dbA; // Result A
     public ComputeBuffer SpringStartIndicesBuffer_dbB; // Result B
     public ComputeBuffer SpringStartIndicesBuffer_dbC; // Support
@@ -74,11 +73,10 @@ public class Simulation : MonoBehaviour
     // Constants
     [NonSerialized] public int MaxInfluenceRadiusSqr;
     [NonSerialized] public float InvMaxInfluenceRadius;
-    [NonSerialized] public int2 ChunksNum;
+    [NonSerialized] public int4 ChunksNum; // x,y,z,x*y
     [NonSerialized] public int ChunksNumAll;
     [NonSerialized] public int ChunksNumAllNextPow2;
     [NonSerialized] public int ParticlesNum_NextPow2;
-    [NonSerialized] public int ParticlesNum_NextLog2;
     [NonSerialized] public int ParticleSpringsCombinedHalfLength;
 
     // Particle data
@@ -87,6 +85,7 @@ public class Simulation : MonoBehaviour
 
     // Other
     private float DeltaTime;
+    private bool FrameBufferCycle = true;
     private bool ProgramStarted = false;
 
     void Start()
@@ -96,7 +95,7 @@ public class Simulation : MonoBehaviour
         SetPTypesData();
 
         for (int i = 0; i < ParticlesNum; i++) {
-            PData[i].Position = Utils.GetParticleSpawnPosition(i, ParticlesNum, Width, Height, SpawnDims);
+            PData[i].Position = Utils.GetParticleSpawnPosition(i, ParticlesNum, Width, Height, Depth);
         }
 
         InitializeBuffers();
@@ -109,20 +108,23 @@ public class Simulation : MonoBehaviour
         ProgramStarted = true;
     }
 
-    public void RunTimeSteps()
+    public void RunTimeSteps(int timeStepsNum)
     {
-        UpdateShaderTimeStep();
-
-        GPUSortChunkLookUp();
-        GPUSortSpringLookUp();
-
-        for (int i = 0; i < TimeStepsPerRender; i++)
+        for (int timeStepCount = 0; timeStepCount < timeStepsNum; timeStepCount++)
         {
-            pSimShader.SetBool("TransferSpringData", i == 0);
+            UpdateShaderTimeStep();
 
-            RunPSimShader();
+            GPUSortChunkLookUp();
+            GPUSortSpringLookUp();
 
-            ComputeHelper.DispatchKernel (pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize);
+            for (int subTimeStepCount = 0; subTimeStepCount < SubTimeStepsNum; subTimeStepCount++)
+            {
+                pSimShader.SetBool("TransferSpringData", subTimeStepCount == 0);
+
+                RunPSimShader();
+
+                ComputeHelper.DispatchKernel (pSimShader, "UpdatePositions", ParticlesNum, pSimShaderThreadSize);
+            }
         }
     }
 
@@ -166,20 +168,23 @@ public class Simulation : MonoBehaviour
     float GetDeltaTime()
     {
         return FixedTimeStep
-        ? TimeStep / TimeStepsPerRender
-        : Time.deltaTime * ProgramSpeed / TimeStepsPerRender;
+        ? TimeStep / SubTimeStepsNum
+        : Time.deltaTime * ProgramSpeed / SubTimeStepsNum;
     }
 
     void SetConstants()
     {
-        Func.NextDivisible(Height, MaxInfluenceRadius);
-        Func.NextDivisible(Width, MaxInfluenceRadius);
+        Func.NextDivisible(ref Height, MaxInfluenceRadius);
+        Func.NextDivisible(ref Width, MaxInfluenceRadius);
+        Func.NextDivisible(ref Depth, MaxInfluenceRadius);
 
         MaxInfluenceRadiusSqr = MaxInfluenceRadius * MaxInfluenceRadius;
         InvMaxInfluenceRadius = 1.0f / MaxInfluenceRadius;
         ChunksNum.x = Width / MaxInfluenceRadius;
         ChunksNum.y = Height / MaxInfluenceRadius;
-        ChunksNumAll = ChunksNum.x * ChunksNum.y;
+        ChunksNum.z = Depth / MaxInfluenceRadius;
+        ChunksNum.w = ChunksNum.x * ChunksNum.y;
+        ChunksNumAll = ChunksNum.x * ChunksNum.y * ChunksNum.z;
         ParticlesNum_NextPow2 = Func.NextPow2(ParticlesNum);
         ParticleSpringsCombinedHalfLength = (int)(ParticlesNum * SpringCapacitySafety * 0.5);
     }
@@ -366,10 +371,10 @@ public class Simulation : MonoBehaviour
             {
                 PData[i] = new PDataStruct
                 {
-                    PredPosition = new float2(0.0f, 0.0f),
-                    Position = new float2(0.0f, 0.0f),
-                    Velocity = new float2(0.0f, 0.0f),
-                    LastVelocity = new float2(0.0f, 0.0f),
+                    PredPosition = 0,
+                    Position = 0,
+                    Velocity = 0,
+                    LastVelocity = 0,
                     Density = 0.0f,
                     NearDensity = 0.0f,
                     Temperature = Utils.CelciusToKelvin(20.0f),
@@ -381,12 +386,12 @@ public class Simulation : MonoBehaviour
             {
                 PData[i] = new PDataStruct
                 {
-                    PredPosition = new float2(0.0f, 0.0f),
-                    Position = new float2(0.0f, 0.0f),
-                    Velocity = new float2(0.0f, 0.0f),
-                    LastVelocity = new float2(0.0f, 0.0f),
-                    Density = 0.0f,
-                    NearDensity = 0.0f,
+                    PredPosition = 0,
+                    Position = 0,
+                    Velocity = 0,
+                    LastVelocity = 0,
+                    Density = 0,
+                    NearDensity = 0,
                     Temperature = Utils.CelciusToKelvin(80.0f),
                     TemperatureExchangeBuffer = 0.0f,
                     LastChunkKey_PType_POrder = (3 + 1) * ChunksNumAll // flattened equivelant to PType = 3+1

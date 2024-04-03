@@ -1,156 +1,156 @@
-#pragma kernel Render2D; // 0
+// #pragma kernel Render2D; // 0
 
-#include "SimulationResources.hlsl"
-#include "CompositionResources.hlsl"
+// #include "SimulationResources.hlsl"
+// #include "CompositionResources.hlsl"
 
-const float VisualParticleRadii;
-const float RBRenderThickness;
-const int RBVectorNum;
-const int2 Resolution;
+// const float VisualParticleRadii;
+// const float RBRenderThickness;
+// const int RBVectorNum;
+// const int2 Resolution;
 
-const int Width;
-const int Height;
-const int MaxInfluenceRadius;
-const int2 ChunksNum;
-const int ParticlesNum;
-const int RBodiesNum;
+// const int Width;
+// const int Height;
+// const int MaxInfluenceRadius;
+// const int2 ChunksNum;
+// const int ParticlesNum;
+// const int RBodiesNum;
 
-RWTexture2D<float4> Result;
+// RWTexture2D<float4> Result;
 
-RWStructuredBuffer<int2> SpatialLookup;
-RWStructuredBuffer<int> StartIndices;
+// RWStructuredBuffer<int2> SpatialLookup;
+// RWStructuredBuffer<int> StartIndices;
 
-RWStructuredBuffer<PTypeStruct> PTypes;
-RWStructuredBuffer<PDataStruct> PData;
+// RWStructuredBuffer<PTypeStruct> PTypes;
+// RWStructuredBuffer<PDataStruct> PData;
 
-RWStructuredBuffer<RBDataStruct> RBData;
-RWStructuredBuffer<RBVectorStruct> RBVector;
+// RWStructuredBuffer<RBDataStruct> RBData;
+// RWStructuredBuffer<RBVectorStruct> RBVector;
 
-bool ValidChunk(int ChunkX, int ChunkY)
-{
-    return ChunkX >= 0 && ChunkX < ChunksNum.x && ChunkY >= 0 && ChunkY < ChunksNum.y;
-}
+// bool ValidChunk(int ChunkX, int ChunkY)
+// {
+//     return ChunkX >= 0 && ChunkX < ChunksNum.x && ChunkY >= 0 && ChunkY < ChunksNum.y;
+// }
 
-float3 TemperatureToRGB(float temperature)
-{
-    float normalizedTemp = saturate((temperature - 273.0) / (373.0 - 273.0));
+// float3 TemperatureToRGB(float temperature)
+// {
+//     float normalizedTemp = saturate((temperature - 273.0) / (373.0 - 273.0));
 
-    float3 color;
+//     float3 color;
 
-    if (normalizedTemp < 0.1)
-    {
-        // Light blue to dark blue transition
-        color = lerp(float3(0.5, 0.5, 1.0), float3(0.0, 0.0, 1.0), 2.5 * normalizedTemp);
-    }
-    else if (normalizedTemp < 0.5)
-    {
-        // Dark blue to green transition
-        color = lerp(float3(0.0, 0.0, 1.0), float3(0.0, 1.0, 0.0), 2.5 * (normalizedTemp - 0.1));
-    }
-    else
-    {
-        // Green to red transition
-        color = lerp(float3(0.0, 1.0, 0.0), float3(1.0, 0.0, 0.0), 2.5 * (normalizedTemp - 0.5));
-    }
+//     if (normalizedTemp < 0.1)
+//     {
+//         // Light blue to dark blue transition
+//         color = lerp(float3(0.5, 0.5, 1.0), float3(0.0, 0.0, 1.0), 2.5 * normalizedTemp);
+//     }
+//     else if (normalizedTemp < 0.5)
+//     {
+//         // Dark blue to green transition
+//         color = lerp(float3(0.0, 0.0, 1.0), float3(0.0, 1.0, 0.0), 2.5 * (normalizedTemp - 0.1));
+//     }
+//     else
+//     {
+//         // Green to red transition
+//         color = lerp(float3(0.0, 1.0, 0.0), float3(1.0, 0.0, 0.0), 2.5 * (normalizedTemp - 0.5));
+//     }
 
-    return color;
-}
+//     return color;
+// }
 
-float3 VelocityToRGB(float2 velocity, float g)
-{
-    // Not really normalized
-    float normalizedVelLength = length(velocity) * 0.1;
+// float3 VelocityToRGB(float2 velocity, float g)
+// {
+//     // Not really normalized
+//     float normalizedVelLength = length(velocity) * 0.1;
 
-    float r = min(1.0, normalizedVelLength);
-    float b = max(0.0, 1 - normalizedVelLength);
+//     float r = min(1.0, normalizedVelLength);
+//     float b = max(0.0, 1 - normalizedVelLength);
 
-    return float3(r, g, b);
-}
+//     return float3(r, g, b);
+// }
 
-[numthreads(TN_R,TN_R,1)]
-void Render2D(uint3 id : SV_DispatchThreadID)
-{
-    float pixelPosX = (float)id.x * (float)Width / (float)Resolution.x;
-    float pixelPosY = (float)id.y * (float)Height / (float)Resolution.y;
-    float2 pixelPos = float2(pixelPosX, pixelPosY);
-    int ChunkX = (int)((float)pixelPos.x / (float)MaxInfluenceRadius);
-    int ChunkY = (int)((float)pixelPos.y / (float)MaxInfluenceRadius);
+// [numthreads(TN_R,TN_R,1)]
+// void Render2D(uint3 id : SV_DispatchThreadID)
+// {
+//     float pixelPosX = (float)id.x * (float)Width / (float)Resolution.x;
+//     float pixelPosY = (float)id.y * (float)Height / (float)Resolution.y;
+//     float2 pixelPos = float2(pixelPosX, pixelPosY);
+//     int ChunkX = (int)((float)pixelPos.x / (float)MaxInfluenceRadius);
+//     int ChunkY = (int)((float)pixelPos.y / (float)MaxInfluenceRadius);
 
-    // Render rigid bodies
-    int rayHits = 0;
-    float rayY = pixelPos.y;
-    float2 rayCoordA = float2(0, rayY);
-    float2 rayCoordB = float2(Width, rayY);
-    for (int RBIndex = 0; RBIndex < RBodiesNum; RBIndex++)
-    {
-        RBDataStruct RBData_i = RBData[RBIndex];
-        float2 dst = pixelPos - RBData_i.Position;
-        float dstSqr = dot(dst, dst);
-        if (dstSqr > RBData_i.MaxDstSqr) { continue; }
+//     // Render rigid bodies
+//     int rayHits = 0;
+//     float rayY = pixelPos.y;
+//     float2 rayCoordA = float2(0, rayY);
+//     float2 rayCoordB = float2(Width, rayY);
+//     for (int RBIndex = 0; RBIndex < RBodiesNum; RBIndex++)
+//     {
+//         RBDataStruct RBData_i = RBData[RBIndex];
+//         float2 dst = pixelPos - RBData_i.Position;
+//         float dstSqr = dot(dst, dst);
+//         if (dstSqr > RBData_i.MaxDstSqr) { continue; }
 
-        float2 localRayCoordA = rayCoordA - RBData_i.Position;
-        float2 localRayCoordB = rayCoordB - RBData_i.Position;
-        float localRayPosX = pixelPos.x - RBData_i.Position.x;
-        int startIndex = RBData_i.LineIndices.x;
-        int endIndex = RBData_i.LineIndices.y;
-        for (int lineIndex = startIndex; lineIndex < endIndex; lineIndex++)
-        {
-            float2 localVecA = RBVector[lineIndex].Position;
-            float2 localVecB = RBVector[lineIndex+1].Position;
-            if (CheckLinesIntersect(localVecA, localVecB, localRayCoordA, localRayCoordB))
-            { 
-                if (LineIntersectionPoint(localVecA, localVecB, localRayCoordA, localRayCoordB).x < localRayPosX)
-                {
-                    rayHits++; 
-                }
-            }
-        }
-        if ((uint)rayHits % 2 == 1) { Result[id.xy] = float4(1, 1, 1, 0.0); return; }
-    }
+//         float2 localRayCoordA = rayCoordA - RBData_i.Position;
+//         float2 localRayCoordB = rayCoordB - RBData_i.Position;
+//         float localRayPosX = pixelPos.x - RBData_i.Position.x;
+//         int startIndex = RBData_i.LineIndices.x;
+//         int endIndex = RBData_i.LineIndices.y;
+//         for (int lineIndex = startIndex; lineIndex < endIndex; lineIndex++)
+//         {
+//             float2 localVecA = RBVector[lineIndex].Position;
+//             float2 localVecB = RBVector[lineIndex+1].Position;
+//             if (CheckLinesIntersect(localVecA, localVecB, localRayCoordA, localRayCoordB))
+//             { 
+//                 if (LineIntersectionPoint(localVecA, localVecB, localRayCoordA, localRayCoordB).x < localRayPosX)
+//                 {
+//                     rayHits++; 
+//                 }
+//             }
+//         }
+//         if ((uint)rayHits % 2 == 1) { Result[id.xy] = float4(1, 1, 1, 0.0); return; }
+//     }
 
-    // Render particle liquids
-    float minDst = VisualParticleRadii;
-    bool particleFound;
-    for (int x = -1; x <= 1; x++)
-    {
-        for (int y = -1; y <= 1; y++)
-        {
-            int CurChunkX = ChunkX + x;
-            int CurChunkY = ChunkY + y;
+//     // Render particle liquids
+//     float minDst = VisualParticleRadii;
+//     bool particleFound;
+//     for (int x = -1; x <= 1; x++)
+//     {
+//         for (int y = -1; y <= 1; y++)
+//         {
+//             int CurChunkX = ChunkX + x;
+//             int CurChunkY = ChunkY + y;
 
-            if (!ValidChunk(CurChunkX, CurChunkY)) {continue;}
+//             if (!ValidChunk(CurChunkX, CurChunkY)) {continue;}
 
-            int ChunkKey = CurChunkY * ChunksNum.x + CurChunkX;
-            int startIndex = StartIndices[ChunkKey];
+//             int ChunkKey = CurChunkY * ChunksNum.x + CurChunkX;
+//             int startIndex = StartIndices[ChunkKey];
 
-            int Index = startIndex; 
-            while (Index < ParticlesNum && ChunkKey == SpatialLookup[Index].y)
-            {
-                int pIndex = SpatialLookup[Index].x;
-                PDataStruct PData_i = PData[pIndex];
+//             int Index = startIndex; 
+//             while (Index < ParticlesNum && ChunkKey == SpatialLookup[Index].y)
+//             {
+//                 int pIndex = SpatialLookup[Index].x;
+//                 PDataStruct PData_i = PData[pIndex];
 
-                float dst = length(pixelPos - PData_i.Position);
+//                 float dst = length(pixelPos - PData_i.Position);
 
-                if (dst < minDst)
-                {
-                    // visualize velocity / temperature
-                    float3 rgb = VelocityToRGB(PData_i.Velocity, PTypes[Extract_PType(PData_i.LastChunkKey_PType_POrder)].colorG);
-                    // float3 rgb = TemperatureToRGB(PData_i.Temperature);
+//                 if (dst < minDst)
+//                 {
+//                     // visualize velocity / temperature
+//                     float3 rgb = VelocityToRGB(PData_i.Velocity, PTypes[Extract_PType(PData_i.LastChunkKey_PType_POrder)].colorG);
+//                     // float3 rgb = TemperatureToRGB(PData_i.Temperature);
 
-                    float r = rgb.x; float g = rgb.y; float b = rgb.z;
+//                     float r = rgb.x; float g = rgb.y; float b = rgb.z;
 
-                    Result[id.xy] = float4(r, g, b, 0.0);
-                    minDst = dst;
-                    particleFound = true;
-                }
+//                     Result[id.xy] = float4(r, g, b, 0.0);
+//                     minDst = dst;
+//                     particleFound = true;
+//                 }
 
-                // Increment Index each iteration - Chunk particle search algorithm
-                Index += 1;
-            }
-        }
-    }
-    if (particleFound) { return; }
+//                 // Increment Index each iteration - Chunk particle search algorithm
+//                 Index += 1;
+//             }
+//         }
+//     }
+//     if (particleFound) { return; }
 
-    // Background color is r,g,b,o = 0,0,0,0 (black)
-    Result[id.xy] = float4(0.0, 0.0, 0.0, 0.0);
-}
+//     // Background color is r,g,b,o = 0,0,0,0 (black)
+//     Result[id.xy] = float4(0.0, 0.0, 0.0, 0.0);
+// }

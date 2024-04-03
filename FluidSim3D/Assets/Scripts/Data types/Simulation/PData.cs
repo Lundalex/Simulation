@@ -1,10 +1,10 @@
 using Unity.Mathematics;
 public struct PDataStruct
 {
-    public float2 PredPosition;
-    public float2 Position;
-    public float2 Velocity;
-    public float2 LastVelocity;
+    public float3 PredPosition;
+    public float3 Position;
+    public float3 Velocity;
+    public float3 LastVelocity;
     public float Density;
     public float NearDensity;
     public float Temperature; // kelvin

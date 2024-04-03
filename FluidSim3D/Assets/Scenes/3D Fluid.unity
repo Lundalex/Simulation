@@ -281,13 +281,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 868168745}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 15, y: 15, z: -23}
+  m_LocalRotation: {x: 0.13050628, y: -0.01730314, z: 0.002278001, w: 0.99129385}
+  m_LocalPosition: {x: 8, y: 12, z: -23}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 15, y: -2, z: 0}
 --- !u!114 &868168749
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -300,29 +300,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4931dbbf0e8d469468045a57e5273257, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fieldOfView: 70
+  fieldOfView: 62
   Resolution:
     x: 1920
     y: 1080
-  MaxStepCount: 146
+  MaxStepCount: 120
   RaysPerPixel: 1
   HitThreshold: 0.01
   ScatterProbability: 1
   DefocusStrength: 0
-  focalPlaneFactor: 16.7
+  focalPlaneFactor: 16
   MaxStepSize: 0.15
   FrameCount: 0
-  ChunksPerObject: 100
+  ChunksPerObject: 60
   MinWorldBounds:
     x: 0
     y: 0
-    z: -30
+    z: -50
   MaxWorldBounds:
-    x: 30
-    y: 30
-    z: 0
-  CellSize: 0.2
-  RenderTris: 1
+    x: 50
+    y: 50
+    z: 50
+  CellSize: 0.15
+  RenderTris: 0
   OBJ_Pos:
     x: 2
     y: -2
@@ -365,14 +365,14 @@ MonoBehaviour:
     z: -3.5
     w: 0.7
   MatTypesInput1:
-  - x: 1
-    y: 0
-    z: 1
-    w: 5
-  - x: 1
+  - x: 0
     y: 1
     z: 0
-    w: 5
+    w: 0.8
+  - x: 0
+    y: 0
+    z: 1
+    w: 0.8
   MatTypesInput2:
   - x: 1
     y: 0
@@ -434,9 +434,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c64949e5b2df884bb8f7c5f3b908c48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  POffsetZ: -15
+  TimeStepsPerRenderFrame: 3
+  RotationSpeed: 0.2
   PRadius: 0.05
-  PMaterialKey: 1
+  Rot:
+    x: 0
+    y: 0
+    z: 0
   renderer: {fileID: 868168749}
   sim: {fileID: 2125271849}
   texture: {fileID: 473926887}
@@ -515,51 +519,38 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c4e01cbd809e59f4e9d22e12742b644e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ParticlesNum: 30000
+  ParticlesNum: 60000
   MaxInfluenceRadius: 2
   TargetDensity: 2
-  PressureMultiplier: 3000
-  NearPressureMultiplier: 12
+  PressureMultiplier: 1000
+  NearPressureMultiplier: 20
   Damping: 0.7
   PassiveDamping: 0
-  RbElasticity: 0.645
   LookAheadFactor: 0.017
   StateThresholdPadding: 3
   Viscosity: 1.5
-  SpringStiffness: 5
+  SpringStiffness: 2
   TolDeformation: 0
   Plasticity: 3
   Gravity: 5
-  RbPStickyRadius: 2
-  RbPStickyness: 1
+  SpringCapacitySafety: 500
   MaxChunkSearchSafety: 1
-  StickynessCapacitySafety: 0.5
-  SpringCapacitySafety: 150
-  TriStorageLength: 4
-  Width: 300
+  Width: 150
   Height: 200
-  SpawnDims: 160
+  Depth: 50
   BorderPadding: 4
   FixedTimeStep: 1
   RenderMarchingSquares: 0
-  TimeStep: 0.02
+  TimeStep: 0.04
   ProgramSpeed: 2
-  VisualParticleRadii: 0.4
-  RBRenderThickness: 0.5
-  TimeStepsPerRender: 3
-  MSvalMin: 0.41
-  MSResolution: 3
-  MarchW: 100
-  MarchH: 66
+  SubTimeStepsNum: 3
   MaxInteractionRadius: 40
-  InteractionAttractionPower: 7
+  InteractionAttractionPower: 5
   InteractionFountainPower: 0
   InteractionTemperaturePower: 0
   shaderHelper: {fileID: 2125271848}
   pSimShader: {fileID: 7200000, guid: 4c6ba7b69baa30b428d3e81f801e27b8, type: 3}
-  rbSimShader: {fileID: 7200000, guid: 3e72e65699b868a4d8590ebb7e640340, type: 3}
   sortShader: {fileID: 7200000, guid: 3e99023e342e7f542b3045d213b12c03, type: 3}
-  marchingSquaresShader: {fileID: 7200000, guid: 53a21f71eed458e4da23a64374440d8f, type: 3}
 --- !u!33 &2125271850
 MeshFilter:
   m_ObjectHideFlags: 0

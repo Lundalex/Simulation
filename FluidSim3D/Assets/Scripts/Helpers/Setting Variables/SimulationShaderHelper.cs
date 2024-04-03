@@ -86,14 +86,13 @@ public class SimulationShaderHelper : MonoBehaviour
     {
         pSimShader.SetInt("MaxInfluenceRadiusSqr", sim.MaxInfluenceRadiusSqr);
         pSimShader.SetFloat("InvMaxInfluenceRadius", sim.InvMaxInfluenceRadius);
-        pSimShader.SetVector("ChunksNum", new Vector2(sim.ChunksNum.x, sim.ChunksNum.y));
+        pSimShader.SetVector("ChunksNum", new Vector4(sim.ChunksNum.x, sim.ChunksNum.y, sim.ChunksNum.z, sim.ChunksNum.w));
         pSimShader.SetInt("Width", sim.Width);
         pSimShader.SetInt("Height", sim.Height);
+        pSimShader.SetInt("Depth", sim.Depth);
         pSimShader.SetInt("ParticlesNum", sim.ParticlesNum);
         pSimShader.SetInt("ParticleSpringsCombinedHalfLength", sim.ParticleSpringsCombinedHalfLength);
         pSimShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
-        pSimShader.SetInt("SpawnDims", sim.SpawnDims);
-        pSimShader.SetInt("TimeStepsPerRender", sim.TimeStepsPerRender);
         pSimShader.SetFloat("LookAheadFactor", sim.LookAheadFactor);
         pSimShader.SetFloat("StateThresholdPadding", sim.StateThresholdPadding);
         pSimShader.SetFloat("BorderPadding", sim.BorderPadding);
@@ -106,7 +105,7 @@ public class SimulationShaderHelper : MonoBehaviour
     public void UpdateSortShaderVariables(ComputeShader sortShader)
     {
         sortShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
-        sortShader.SetVector("ChunksNum", new Vector2(sim.ChunksNum.x, sim.ChunksNum.y));
+        sortShader.SetVector("ChunksNum", new Vector4(sim.ChunksNum.x, sim.ChunksNum.y, sim.ChunksNum.z, sim.ChunksNum.w));
         sortShader.SetInt("ChunksNumAll", sim.ChunksNumAll);
         sortShader.SetInt("ChunkNumNextPow2", sim.ChunksNumAllNextPow2);
         sortShader.SetInt("ParticlesNum", sim.ParticlesNum);

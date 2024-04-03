@@ -33,10 +33,10 @@ struct PTypeStruct
 };
 struct PDataStruct
 {
-    float2 PredPosition;
-    float2 Position;
-    float2 Velocity;
-    float2 LastVelocity;
+    float3 PredPosition;
+    float3 Position;
+    float3 Velocity;
+    float3 LastVelocity;
     float Density;
     float NearDensity;
     float Temperature; // kelvin
@@ -45,39 +45,4 @@ struct PDataStruct
     // POrder is dynamic, 
     // 0 <= LastChunkKey <= ChunkNum
     // 0 <= PType <= PTypesNum
-};
-struct StickynessRequestStruct
-{
-    int pIndex;
-    int StickyLineIndex;
-    float2 StickyLineDst;
-    float absDstToLineSqr;
-    float RBStickyness;
-    float RBStickynessRange;
-};
-struct RBDataStruct
-{
-    float2 Position;
-    float2 Velocity;
-    // radians / second
-    float AngularImpulse;
-    float Stickyness;
-    float StickynessRange;
-    float StickynessRangeSqr;
-    float2 NextPos;
-    float2 NextVel;
-    float NextAngImpulse;
-    float Mass;
-    int2 LineIndices;
-    float MaxDstSqr;
-    int WallCollision;
-    int Stationary; // 1 -> Stationary, 0 -> Non-stationary
-};
-struct RBVectorStruct
-{
-    float2 Position;
-    float2 LocalPosition;
-    float3 ParentImpulse;
-    int ParentRBIndex;
-    int WallCollision;
 };

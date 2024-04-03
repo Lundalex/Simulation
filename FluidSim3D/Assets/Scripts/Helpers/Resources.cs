@@ -51,15 +51,13 @@ namespace Resources
             return 273.15f + celciusTemp;
         }
         
-        public static float2 GetParticleSpawnPosition(int pIndex, int maxIndex, int Width, int Height, int SpawnDims)
+        public static float3 GetParticleSpawnPosition(int pIndex, int maxIndex, int width, int height, int depth)
         {
-            float x = (Width - SpawnDims) / 2 + Mathf.Floor(pIndex % Mathf.Sqrt(maxIndex)) * (SpawnDims / Mathf.Sqrt(maxIndex));
-            float y = (Height - SpawnDims) / 2 + Mathf.Floor(pIndex / Mathf.Sqrt(maxIndex)) * (SpawnDims / Mathf.Sqrt(maxIndex));
-            if (SpawnDims > Width || SpawnDims > Height)
-            {
-                throw new ArgumentException("Particle spawn dimensions larger than either border_width or border_height");
-            }
-            return new float2(x, y);
+            float posX = Func.RandFloat((float)5+width/4, (float)3*width/4-5);
+            float posY = Func.RandFloat((float)5, (float)height-5);
+            float posZ = Func.RandFloat((float)5, (float)depth-5);
+
+            return new float3(posX, posY, posZ);
         }
     }
 
@@ -85,6 +83,12 @@ namespace Resources
 
         /// <returns>returns a random integer between a min value (INCLUSIVE) and a max value (INCLUSIVE)</returns>
         public static int RandInt(int min, int max)
+        {
+            return UnityEngine.Random.Range(min, max+1);
+        }
+
+        /// <returns>returns a random float between a min value (INCLUSIVE) and a max value (INCLUSIVE)</returns>
+        public static float RandFloat(float min, float max)
         {
             return UnityEngine.Random.Range(min, max+1);
         }

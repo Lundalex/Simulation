@@ -11,15 +11,11 @@
 #pragma kernel ParallelPrefixSumScan // 7
 #pragma kernel CopySpringStartIndicesBuffer // 8
 
-// Sticky requests
-#pragma kernel PopulateSortedStickyRequests // 9
-#pragma kernel SRSortIteration // 10
-
 #include "SimulationResources.hlsl"
 #include "CompositionResources.hlsl"
 
 const int MaxInfluenceRadius;
-const int2 ChunksNum;
+const int4 ChunksNum;
 const int ChunksNumAll;
 const int ChunksNumAllNextPow2;
 const int ParticlesNum;
@@ -29,13 +25,6 @@ const int ParticlesNum_NextPow2;
 const bool BrownPinkSort; // True -> BrownSort, False -> PinkSort
 const int SpatialLookupLog2Length;
 const int BlockLen;
-
-const int SortedStickyRequestsLength;
-const int SortedStickyRequestsLog2Length;
-
-const bool SRBrownPinkSort; // True -> BrownSort, False -> PinkSort
-const int SRBlockLen;
-const int SRblocksNum;
 
 const bool FrameBufferCycle;
 const bool StepBufferCycle;
@@ -51,9 +40,6 @@ RWStructuredBuffer<int> SpringStartIndices_dbC; // Support
 
 RWStructuredBuffer<PDataStruct> PData;
 
-ConsumeStructuredBuffer<StickynessRequestStruct> StickynessReqsCONSUME;
-RWStructuredBuffer<StickynessRequestStruct> SortedStickyRequests;
-
 void SwapInt2(inout int2 a, inout int2 b)
 {
     int2 temp = a;
@@ -61,29 +47,23 @@ void SwapInt2(inout int2 a, inout int2 b)
     b = temp;
 }
 
-void SwapStickynessRequestStruct(inout StickynessRequestStruct a, inout StickynessRequestStruct b)
+bool ValidChunk(int ChunkX, int ChunkY, int ChunkZ)
 {
-    StickynessRequestStruct temp = a;
-    a = b;
-    b = temp;
+    return ChunkX >= 0 && ChunkX < ChunksNum.x && ChunkY >= 0 && ChunkY < ChunksNum.y && ChunkZ >= 0 && ChunkZ < ChunksNum.z;
 }
 
-bool ValidChunk(int ChunkX, int ChunkY)
+int GetChunkKeyFromPosition(float3 pos)
 {
-    return ChunkX >= 0 && ChunkX < ChunksNum.x && ChunkY >= 0 && ChunkY < ChunksNum.y;
-}
-
-int GetChunkKeyFromPosition(float2 pos)
-{
-    int2 chunk = (int2)(pos / MaxInfluenceRadius);
-    int chunkKey = chunk.y * ChunksNum.x + chunk.x;
+    int3 chunk = (int3)(pos / MaxInfluenceRadius);
+    int chunkKey = chunk.y * ChunksNum.x + chunk.x + chunk.z * ChunksNum.w;
     return chunkKey;
 }
 
 int GetNeighboorParticlesNum(int chunkKey)
 {
     int chunkX = (uint)chunkKey % ChunksNum.x;
-    int chunkY = (int)((uint)chunkKey / ChunksNum.x);
+    int chunkY = (int)((uint)chunkKey / ChunksNum.x) % ChunksNum.y;
+    int chunkZ = (int)((uint)chunkKey / ChunksNum.w);
 
     int neighboorParticlesNum = 0;
     for (int x = -1; x <= 1; x++)
@@ -94,10 +74,15 @@ int GetNeighboorParticlesNum(int chunkKey)
         {
             int curChunkY = chunkY + y;
 
-            if (ValidChunk(curChunkX, curChunkY))
+            for (int z = -1; z <= 1; z++)
             {
-                int neighboorChunkKey = curChunkY * ChunksNum.x + curChunkX;
-                neighboorParticlesNum += SpringCapacities[neighboorChunkKey].x;
+                int curChunkZ = chunkZ + z;
+
+                if (ValidChunk(curChunkX, curChunkY, curChunkZ))
+                {
+                    int neighboorChunkKey = curChunkX + curChunkY * ChunksNum.x + curChunkZ * ChunksNum.w;
+                    neighboorParticlesNum += SpringCapacities[neighboorChunkKey].x;
+                }
             }
         }
     }
@@ -288,35 +273,5 @@ void CopySpringStartIndicesBuffer (uint3 id : SV_DispatchThreadID)
     else
     {
         SpringStartIndices_dbB[i] = SpringStartIndices_dbC[i];
-    }
-}
-
-[numthreads(512,1,1)]
-void PopulateSortedStickyRequests (uint3 id : SV_DispatchThreadID)
-{
-    int i = id.x;
-
-    StickynessRequestStruct stickynessRequest = StickynessReqsCONSUME.Consume();
-
-    SortedStickyRequests[i] = stickynessRequest;
-}
-
-[numthreads(512,1,1)]
-void SRSortIteration (uint3 id : SV_DispatchThreadID)
-{
-    int lowRef = id.x;
-
-    int relBlock = (int)(2 * lowRef / (uint)SRBlockLen);
-    int relPos = lowRef % (0.5 * SRBlockLen);
-
-    int lowIndex = relBlock * SRBlockLen + relPos;
-
-    int highIndex = SRBrownPinkSort
-    ? relBlock * SRBlockLen + SRBlockLen - 1 - relPos
-    : relBlock * SRBlockLen + relPos + (int)(SRBlockLen * 0.5);
-    
-    if (SortedStickyRequests[lowIndex].pIndex > SortedStickyRequests[highIndex].pIndex)
-    {
-        SwapStickynessRequestStruct(SortedStickyRequests[highIndex], SortedStickyRequests[lowIndex]);
     }
 }
