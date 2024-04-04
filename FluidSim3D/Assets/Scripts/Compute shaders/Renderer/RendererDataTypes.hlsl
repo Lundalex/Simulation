@@ -35,6 +35,12 @@ struct Tri // Triangle
     int materialKey;
     int parentKey;
 };
+struct Tri2 // Triangle (variant)
+{
+    float3 vA;
+    float3 vB;
+    float3 vC;
+};
 struct Sphere
 {
     float3 pos;

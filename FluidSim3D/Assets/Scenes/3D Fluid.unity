@@ -175,7 +175,7 @@ MonoBehaviour:
   NoiseCellSize: 128
   LerpFactor: 0.15
   inputB: 3
-  NoisePixelSize: 0.8
+  NoisePixelSize: 0.99
   RenderNoiseTextures: 1
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
@@ -304,13 +304,14 @@ MonoBehaviour:
   Resolution:
     x: 1920
     y: 1080
-  MaxStepCount: 140
+  MaxStepCount: 200
   RaysPerPixel: 1
   HitThreshold: 0.01
   ScatterProbability: 1
   DefocusStrength: 0
   focalPlaneFactor: 16
-  MaxStepSize: 0.27
+  MaxStepSize: 0.25
+  TriMeshSafety: 0.2
   FrameCount: 0
   ChunksPerObject: 60
   MinWorldBounds:
@@ -321,16 +322,16 @@ MonoBehaviour:
     x: 25
     y: 25
     z: 20
-  CellSize: 0.15
-  CellSizeMS: 0.1
-  RenderTris: 0
+  CellSize: 0.1
+  CellSizeMS: 1
+  RenderTris: 1
   OBJ_Pos:
-    x: 2
-    y: -2
-    z: 0
+    x: 8
+    y: 12
+    z: -15
   OBJ_Rot:
     x: 0
-    y: -3.76
+    y: 0
     z: 0
   SpheresInput:
   - x: -5
@@ -535,7 +536,7 @@ MonoBehaviour:
   TolDeformation: 0
   Plasticity: 3
   Gravity: 5
-  SpringCapacitySafety: 500
+  SpringCapacitySafety: 1000
   MaxChunkSearchSafety: 1
   Width: 150
   Height: 200

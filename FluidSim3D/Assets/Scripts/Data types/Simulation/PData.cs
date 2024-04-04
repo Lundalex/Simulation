@@ -1,5 +1,5 @@
 using Unity.Mathematics;
-public struct PDataStruct
+public struct PData
 {
     public float3 PredPosition;
     public float3 Position;

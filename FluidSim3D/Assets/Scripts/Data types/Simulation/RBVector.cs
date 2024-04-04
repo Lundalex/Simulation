@@ -1,5 +1,5 @@
 using Unity.Mathematics;
-public struct RBVectorStruct
+public struct RBVector
 {
     public float3 Position;
     public float3 LocalPosition;

@@ -19,6 +19,7 @@ public class Renderer : MonoBehaviour
     [Range(0.0f, 2.0f)] public float DefocusStrength = 0.0f;
     public float focalPlaneFactor = 16.7f; // focalPlaneFactor must be positive
     public float MaxStepSize = 0.15f;
+    public float TriMeshSafety = 0.2f;
     public int FrameCount = 0;
     [Range(1, 1000)] public int ChunksPerObject = 50;
 
@@ -44,6 +45,7 @@ public class Renderer : MonoBehaviour
     public ComputeShader ngShader;
     [NonSerialized] public RenderTexture renderTexture; // Texture drawn to screen
     [NonSerialized] public RenderTexture T_GridDensities;
+    [NonSerialized] public RenderTexture T_SurfaceCells;
     public RendererShaderHelper shaderHelper;
     public TextureCreator textureCreator;
     public Simulation sim;
@@ -54,6 +56,7 @@ public class Renderer : MonoBehaviour
     private const int pcShaderThreadSize = 512; // / 1024
     private const int ssShaderThreadSize = 512; // / 1024
     private const int msShaderThreadSize = 8; // /~10
+    private const int msShaderThreadSize2 = 512; //1024
 
     // Non-inpector-accessible variables
 
@@ -71,10 +74,11 @@ public class Renderer : MonoBehaviour
     public ComputeBuffer B_SpatialLookup;
     public ComputeBuffer B_StartIndices;
     public ComputeBuffer AC_OccupiedChunks;
+    public ComputeBuffer AC_SurfaceCells;
+    public ComputeBuffer AC_FluidTriMesh;
     public ComputeBuffer CB_A;
     private bool ProgramStarted = false;
     private bool SettingsChanged = true;
-    private int OC_len = 1;
     private Vector3 lastCameraPosition;
     private Quaternion lastCameraRotation;
 
@@ -82,6 +86,7 @@ public class Renderer : MonoBehaviour
     [NonSerialized] public int NumObjects;
     [NonSerialized] public int NumSpheres;
     [NonSerialized] public int NumTriObjects;
+    [NonSerialized] public int ReservedNumTris;
     [NonSerialized] public int NumTris;
     [NonSerialized] public int NumObjects_NextPow2;
     [NonSerialized] public int4 NumChunks;
@@ -129,6 +134,7 @@ public class Renderer : MonoBehaviour
         Vector3[] vertices = LoadOBJMesh.vertices;
         int[] triangles = LoadOBJMesh.triangles;
         int triNum = triangles.Length / 3;
+        ReservedNumTris = triNum;
 
         // Set Tris data
         Tris = new Tri[triNum];
@@ -149,7 +155,7 @@ public class Renderer : MonoBehaviour
                 parentKey = 0,
             };
         }
-        ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, Tris);
+        ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, 5000);
 
         SetTriObjectData();
     }
@@ -157,11 +163,9 @@ public class Renderer : MonoBehaviour
     void SetConstants()
     {
         NumSpheres = Spheres.Length;
-        NumTris = Tris.Length;
-        NumObjects = NumSpheres + NumTris;
-        NumObjects_NextPow2 = Func.NextPow2(NumObjects);
-
         NumTriObjects = TriObjects.Length;
+
+        UpdateNumTris(5000, true);
 
         float3 ChunkGridDiff = MaxWorldBounds - MinWorldBounds;
         NumChunks = new(Mathf.CeilToInt(ChunkGridDiff.x / CellSize),
@@ -181,6 +185,18 @@ public class Renderer : MonoBehaviour
         );
     }
 
+    void UpdateNumTris(int dynamicTrisNum, bool overrideCheck = false)
+    {
+        if (dynamicTrisNum > NumTris - ReservedNumTris || overrideCheck)
+        {
+            NumTris = ReservedNumTris + dynamicTrisNum;
+            NumObjects = NumSpheres + NumTris;
+            NumObjects_NextPow2 = Func.NextPow2(NumObjects);
+
+            shaderHelper.UpdateTriSettings();
+        }
+    }
+
     void InitBuffers()
     {
         ComputeHelper.CreateStructuredBuffer<int2>(ref B_SpatialLookup, Func.NextPow2(NumObjects * ChunksPerObject));
@@ -190,7 +206,11 @@ public class Renderer : MonoBehaviour
         ComputeHelper.CreateCountBuffer(ref CB_A);
 
         TextureHelper.CreateTexture(ref T_GridDensities, NumCellsMS, 3);
-        rmShader.SetTexture(1, "NoiseB", T_GridDensities);
+        TextureHelper.CreateTexture(ref T_SurfaceCells, NumCellsMS - 1, 3);
+        ComputeHelper.CreateAppendBuffer<int3>(ref AC_SurfaceCells, Func.NextPow2((int)(NumCellsMS.x*NumCellsMS.y*NumCellsMS.z * TriMeshSafety)));
+        ComputeHelper.CreateAppendBuffer<Tri2>(ref AC_FluidTriMesh, Func.NextPow2((int)(NumCellsMS.x*NumCellsMS.y*NumCellsMS.z * TriMeshSafety * 3)));
+
+        rmShader.SetTexture(1, "NoiseB", T_SurfaceCells);
 
         TextureHelper.CreateTexture(ref renderTexture, Resolution, 3);
     }
@@ -302,7 +322,7 @@ public class Renderer : MonoBehaviour
 
         // Get OccupiedChunks length
         // Expensive since it requires data to be sent from the GPU to the CPU!
-        OC_len = ComputeHelper.GetAppendBufferCount(AC_OccupiedChunks, CB_A);
+        int OC_len = ComputeHelper.GetAppendBufferCount(AC_OccupiedChunks, CB_A);
         Func.NextPow2(ref OC_len); // NextPow2() since bitonic merge sort requires pow2 array length
 
         ssShader.SetInt("OC_len", OC_len);
@@ -341,6 +361,23 @@ public class Renderer : MonoBehaviour
     void RunMSShader()
     {
         ComputeHelper.DispatchKernel(msShader, "CalcGridDensities", NumCellsMS.xyz, msShaderThreadSize);
+
+        AC_SurfaceCells.SetCounterValue(0);
+        ComputeHelper.DispatchKernel(msShader, "FindSurface", NumCellsMS.xyz-1, msShaderThreadSize);
+
+        int SC_len = ComputeHelper.GetAppendBufferCount(AC_SurfaceCells, CB_A);
+
+        AC_FluidTriMesh.SetCounterValue(0);
+        ComputeHelper.DispatchKernel(msShader, "GenerateFluidMesh", Mathf.Max(SC_len, 1), msShaderThreadSize2);
+
+        int FTM_len = ComputeHelper.GetAppendBufferCount(AC_FluidTriMesh, CB_A);
+
+        UpdateNumTris(FTM_len);
+
+        ComputeHelper.DispatchKernel(msShader, "TransferFluidMesh", Mathf.Max(FTM_len, 1), msShaderThreadSize2);
+
+        B_Tris.GetData(Tris);
+        int a = 0;
     }
 
     void RunRMShader()
@@ -353,9 +390,9 @@ public class Renderer : MonoBehaviour
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
         // Main program loop
+        RunMSShader(); // MarchingSquares
         if (SettingsChanged) { RunPCShader(); SettingsChanged = false; } // PreCalc
         RunSSShader(); // SpatialSort
-        RunMSShader(); // MarchingSquares
         RunRMShader(); // RayMarcher
 
         Graphics.Blit(renderTexture, dest);
@@ -363,6 +400,6 @@ public class Renderer : MonoBehaviour
 
     void OnDestroy()
     {
-        ComputeHelper.Release(B_TriObjects, B_Tris, B_Spheres, B_Materials, B_SpatialLookup, B_StartIndices, AC_OccupiedChunks, CB_A);
+        ComputeHelper.Release(B_TriObjects, B_Tris, B_Spheres, B_Materials, B_SpatialLookup, B_StartIndices, AC_OccupiedChunks, AC_SurfaceCells, AC_FluidTriMesh, CB_A);
     }
 }

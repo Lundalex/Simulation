@@ -42,12 +42,14 @@ void SwapInt2(inout int2 a, inout int2 b)
     b = temp;
 }
 
-int GetChunkKeyFromPosition(float3 pos)
+int3 GetChunkFromPos(float3 pos)
 {
-    int3 chunk = (int3)(pos / CellSize);
+    return (int3)(pos / CellSize);
+}
 
-    int chunkKey = chunk.x + chunk.y*NumChunks.x + chunk.z*NumChunks.w;
-    return chunkKey;
+uint GetChunkKey(uint3 chunk)
+{
+    return chunk.x + chunk.y*NumChunks.x + chunk.z*NumChunks.w;
 }
 
 bool IsOutsideBoundsMin(float3 point2)
@@ -83,19 +85,18 @@ void CalcSphereChunkKeys (uint3 id : SV_DispatchThreadID)
 
     // Ensure all coords are positive
     ApplyChunkGridOffset(sphere.pos);
-
-    int centerChunkKey = GetChunkKeyFromPosition(sphere.pos);
-    int offsetRange = ceil(sphere.radius / CellSize) + 1; // + 1 since otherwise, some chunks are missed by the scan
+    int3 baseChunk = GetChunkFromPos(sphere.pos);
+    int offsetRange = ceil(sphere.radius / CellSize);
     
-    for (int x = -offsetRange; x < offsetRange; x++)
+    for (int x = -offsetRange; x <= offsetRange; x++)
     {
-        for (int y = -offsetRange; y < offsetRange; y++)
+        for (int y = -offsetRange; y <= offsetRange; y++)
         {
-            int xy = x + y*NumChunks.x;
-            for (int z = -offsetRange; z < offsetRange; z++)
+            for (int z = -offsetRange; z <= offsetRange; z++)
             {
-                int offsetChunkKey = centerChunkKey + xy + z*NumChunks.w;
-                int2 chunkObjectPair = int2(i, offsetChunkKey);
+                int3 curChunk = baseChunk + int3(x,y,z);
+                int curChunkKey = GetChunkKey(curChunk);
+                int2 chunkObjectPair = int2(i, curChunkKey);
                 OccupiedChunksAPPEND.Append(chunkObjectPair);
             }
         }
@@ -132,10 +133,10 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
     {
         for (int y = minChunk.y; y <= maxChunk.y; y++)
         {
-            int xy = x + y*NumChunks.x;
             for (int z = minChunk.z; z <= maxChunk.z; z++)
             {
-                int chunkKey = xy + z*NumChunks.w;
+                int3 curChunk = int3(x,y,z);
+                int chunkKey = GetChunkKey(curChunk);
                 int objectKey = i + NumSpheres;
                 int2 chunkObjectPair = int2(objectKey, chunkKey);
                 OccupiedChunksAPPEND.Append(chunkObjectPair);

@@ -1,5 +1,5 @@
 using Unity.Mathematics;
-public struct RBDataStruct
+public struct RBData
 {
     public float2 Position;
     public float2 Velocity;

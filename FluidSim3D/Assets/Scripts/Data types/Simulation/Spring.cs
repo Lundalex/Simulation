@@ -1,4 +1,4 @@
-public struct SpringStruct
+public struct Spring
 {
     public int PLinkedA;
     public int PLinkedB;

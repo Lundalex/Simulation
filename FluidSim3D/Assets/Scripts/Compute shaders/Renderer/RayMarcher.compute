@@ -114,6 +114,11 @@ float TriDstSqr( float3 p, float3 a, float3 b, float3 c )
          dot(nor,pa)*dot(nor,pa)/dot2(nor);
 }
 
+float3 SampleBackgroundTexture(float3 direction)
+{
+    return float3(0,0,0);
+}
+
 ScanInfo Scan (Ray ray, inout int rngState)
 {
     float nearDstSqr = sqr(MaxStepSize);
@@ -145,22 +150,22 @@ ScanInfo Scan (Ray ray, inout int rngState)
                 normal = normalize(ray.pos - sphere.pos);
             }
         }
-        // else
-        // {
-        //     // Calculate distance to tri
-        //     int triIndex = objectIndex - NumSpheres;
-        //     Tri tri = Tris[triIndex];
+        else
+        {
+            // Calculate distance to tri
+            int triIndex = objectIndex - NumSpheres;
+            Tri tri = Tris[triIndex];
             
-        //     float3 localRayPos = ray.pos - TriObjects[tri.parentKey].pos;
-        //     float dstSqr = TriDstSqr(localRayPos, tri.vA, tri.vB, tri.vC);
+            float3 localRayPos = ray.pos - TriObjects[tri.parentKey].pos;
+            float dstSqr = TriDstSqr(localRayPos, tri.vA, tri.vB, tri.vC);
 
-        //     if (dstSqr < nearDstSqr)
-        //     {
-        //         nearDstSqr = dstSqr;
-        //         materialKey = tri.materialKey;
-        //         normal = tri.normal;
-        //     }
-        // }
+            if (dstSqr < nearDstSqr)
+            {
+                nearDstSqr = dstSqr;
+                materialKey = tri.materialKey;
+                normal = tri.normal;
+            }
+        }
 
         Index += 1;
     }
@@ -188,7 +193,18 @@ TraceInfo Trace (Ray ray, inout int rngState)
 
         // March by nearest dst length
         ray.pos += scanInfo.nearDst * ray.dir;
-        if (IsOutsideBounds(ray.pos)) { return traceInfo; }
+        if (IsOutsideBounds(ray.pos))
+        {
+            float3 backgroundColor = SampleBackgroundTexture(ray.dir);
+
+            // Calculate new traceInfo values
+            float backGroundBrightness = 1;
+            float3 emittedLight = backgroundColor * backGroundBrightness;
+            traceInfo.incomingLight += emittedLight * traceInfo.rayColor;
+            traceInfo.rayColor *= backgroundColor;
+
+            return traceInfo;
+        }
 
         // Hit?
         if (scanInfo.nearDst < HitThreshold)

@@ -1,5 +1,5 @@
 using Unity.Mathematics;
-public struct StickynessRequestStruct
+public struct StickynessRequest
 {
     public int pIndex;
     public int StickyLineIndex;

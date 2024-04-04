@@ -1,4 +1,4 @@
-public struct PTypeStruct
+public struct PType
 {
     public int FluidSpringsGroup;
 

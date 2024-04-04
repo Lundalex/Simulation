@@ -69,6 +69,17 @@ public class RendererShaderHelper : MonoBehaviour
         msShader.SetBuffer(0, "Spheres", render.B_Spheres);
 
         msShader.SetTexture(0, "GridDensities", render.T_GridDensities);
+
+        msShader.SetBuffer(1, "SurfaceCellsAPPEND", render.AC_SurfaceCells);
+        msShader.SetTexture(1, "GridDensities", render.T_GridDensities);
+        msShader.SetTexture(1, "SurfaceCells", render.T_SurfaceCells);
+
+        msShader.SetTexture(2, "GridDensities", render.T_GridDensities);
+        msShader.SetBuffer(2, "SurfaceCellsCONSUME", render.AC_SurfaceCells);
+        msShader.SetBuffer(2, "FluidTriMeshAPPEND", render.AC_FluidTriMesh);
+
+        msShader.SetBuffer(3, "FluidTriMeshCONSUME", render.AC_FluidTriMesh);
+        msShader.SetBuffer(3, "Tris", render.B_Tris);
     }
 
 // --- SHADER SETTINGS / VARIABLES ---
@@ -145,13 +156,10 @@ public class RendererShaderHelper : MonoBehaviour
 
     public void SetMSShaderSettings (ComputeShader msShader)
     {
-        msShader.SetVector("NumCellsMS", new Vector3(render.NumCellsMS.x, render.NumCellsMS.y, render.NumCellsMS.z));
         msShader.SetFloat("CellSizeMS", render.CellSizeMS);
-        
 
         msShader.SetVector("NumChunks", new Vector4(render.NumChunks.x, render.NumChunks.y, render.NumChunks.z, render.NumChunks.w));
         msShader.SetFloat("CellSize", render.CellSize);
-        msShader.SetInt("NumObjects", render.NumObjects);
         msShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
     }
 
@@ -204,5 +212,10 @@ public class RendererShaderHelper : MonoBehaviour
         // Frame set variables
         ngShader.SetInt("FrameRand", UnityEngine.Random.Range(0, 999999));
         ngShader.SetInt("FrameCount", render.FrameCount);
+    }
+
+    public void UpdateTriSettings ()
+    {
+        // TODO
     }
 }

@@ -80,8 +80,8 @@ public class Simulation : MonoBehaviour
     [NonSerialized] public int ParticleSpringsCombinedHalfLength;
 
     // Particle data
-    private PDataStruct[] PData;
-    [NonSerialized] public PTypeStruct[] PTypes;
+    private PData[] PData;
+    [NonSerialized] public PType[] PTypes;
 
     // Other
     private float DeltaTime;
@@ -191,12 +191,12 @@ public class Simulation : MonoBehaviour
 
     void SetPTypesData()
     {
-        PTypes = new PTypeStruct[6];
+        PTypes = new PType[6];
         float IR_1 = 2.0f;
         float IR_2 = 2.0f;
         int FSG_1 = 1;
         int FSG_2 = 2;
-        PTypes[0] = new PTypeStruct // Solid
+        PTypes[0] = new PType // Solid
         {
             FluidSpringsGroup = 1,
 
@@ -223,7 +223,7 @@ public class Simulation : MonoBehaviour
             InfluenceRadius = 2,
             colorG = 0.5f
         };
-        PTypes[1] = new PTypeStruct // Liquid
+        PTypes[1] = new PType // Liquid
         {
             FluidSpringsGroup = FSG_1,
 
@@ -250,7 +250,7 @@ public class Simulation : MonoBehaviour
             InfluenceRadius = IR_1,
             colorG = 0.0f
         };
-        PTypes[2] = new PTypeStruct // Gas
+        PTypes[2] = new PType // Gas
         {
             FluidSpringsGroup = 0,
 
@@ -278,7 +278,7 @@ public class Simulation : MonoBehaviour
             colorG = 0.3f
         };
 
-        PTypes[3] = new PTypeStruct // Solid
+        PTypes[3] = new PType // Solid
         {
             FluidSpringsGroup = FSG_2,
 
@@ -305,7 +305,7 @@ public class Simulation : MonoBehaviour
             InfluenceRadius = IR_2,
             colorG = 0.9f
         };
-        PTypes[4] = new PTypeStruct // Liquid
+        PTypes[4] = new PType // Liquid
         {
             FluidSpringsGroup = FSG_2,
 
@@ -332,7 +332,7 @@ public class Simulation : MonoBehaviour
             InfluenceRadius = IR_2,
             colorG = 1.0f
         };
-        PTypes[5] = new PTypeStruct // Gas
+        PTypes[5] = new PType // Gas
         {
             FluidSpringsGroup = FSG_2,
 
@@ -363,13 +363,13 @@ public class Simulation : MonoBehaviour
 
     void InitializeArrays()
     {
-        PData = new PDataStruct[ParticlesNum];
+        PData = new PData[ParticlesNum];
 
         for (int i = 0; i < ParticlesNum; i++)
         {
             if (i < ParticlesNum * 0.5f)
             {
-                PData[i] = new PDataStruct
+                PData[i] = new PData
                 {
                     PredPosition = 0,
                     Position = 0,
@@ -384,7 +384,7 @@ public class Simulation : MonoBehaviour
             }
             else
             {
-                PData[i] = new PDataStruct
+                PData[i] = new PData
                 {
                     PredPosition = 0,
                     Position = 0,
@@ -402,8 +402,8 @@ public class Simulation : MonoBehaviour
 
     void InitializeBuffers()
     {
-        ComputeHelper.CreateStructuredBuffer<PDataStruct>(ref PDataBuffer, PData);
-        ComputeHelper.CreateStructuredBuffer<PTypeStruct>(ref PTypesBuffer, PTypes);
+        ComputeHelper.CreateStructuredBuffer<PData>(ref PDataBuffer, PData);
+        ComputeHelper.CreateStructuredBuffer<PType>(ref PTypesBuffer, PTypes);
 
         ComputeHelper.CreateStructuredBuffer<int2>(ref SpatialLookupBuffer, ParticlesNum_NextPow2);
         ComputeHelper.CreateStructuredBuffer<int>(ref StartIndicesBuffer, ChunksNumAll);
@@ -411,7 +411,7 @@ public class Simulation : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbA, ChunksNumAll);
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbB, ChunksNumAll);
         ComputeHelper.CreateStructuredBuffer<int>(ref SpringStartIndicesBuffer_dbC, ChunksNumAll);
-        ComputeHelper.CreateStructuredBuffer<SpringStruct>(ref ParticleSpringsCombinedBuffer, (int)(ParticlesNum * SpringCapacitySafety));
+        ComputeHelper.CreateStructuredBuffer<Spring>(ref ParticleSpringsCombinedBuffer, (int)(ParticlesNum * SpringCapacitySafety));
     }
 
     void GPUSortChunkLookUp()
