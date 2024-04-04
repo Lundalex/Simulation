@@ -48,3 +48,9 @@ struct Material2
     float brightness;
     float smoothness;
 };
+struct NearInfo
+{
+    float dst;
+    int materialKey;
+    bool foundObject;
+};

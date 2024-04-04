@@ -1,47 +1,47 @@
 struct Spring
 {
-    int PLinkedA;
-    int PLinkedB;
-    float RestLength;
+    int linkedA;
+    int linkedB;
+    float restLength;
 };
 struct PType
 {
-    int FluidSpringsGroup;
+    int fluidSpringsGroup;
 
-    float SpringPlasticity;
-    float SpringTolDeformation;
-    float SpringStiffness;
+    float springPlasticity;
+    float springTolDeformation;
+    float springStiffness;
 
-    float ThermalConductivity;
-    float SpecificHeatCapacity;
-    float FreezeThreshold;
-    float VaporizeThreshold;
+    float thermalConductivity;
+    float specificHeatCapacity;
+    float freezeThreshold;
+    float vaporizeThreshold;
 
-    float Pressure;
-    float NearPressure;
+    float pressure;
+    float nearPressure;
 
-    float Mass;
-    float TargetDensity;
-    float Damping;
-    float PassiveDamping;
-    float Viscosity;
-    float Stickyness;
-    float Gravity;
+    float mass;
+    float targetDensity;
+    float damping;
+    float passiveDamping;
+    float viscosity;
+    float stickyness;
+    float gravity;
 
-    float InfluenceRadius;
+    float influenceRadius;
     float colorG;
 };
 struct PData
 {
-    float3 PredPosition;
-    float3 Position;
-    float3 Velocity;
-    float3 LastVelocity;
-    float Density;
-    float NearDensity;
-    float Temperature; // kelvin
-    float TemperatureExchangeBuffer;
-    int LastChunkKey_PType_POrder; // composed 3 int structure
+    float3 predPos;
+    float3 pos;
+    float3 vel;
+    float3 lastVel;
+    float density;
+    float nearDensity;
+    float temp; // kelvin
+    float tempExchangeBuffer;
+    int lastChunkKey_PType_POrder; // composed 3 int structure
     // POrder is dynamic, 
     // 0 <= LastChunkKey <= ChunkNum
     // 0 <= PType <= PTypesNum

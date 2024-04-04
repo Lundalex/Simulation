@@ -147,10 +147,12 @@ public class RendererShaderHelper : MonoBehaviour
     {
         msShader.SetVector("NumCellsMS", new Vector3(render.NumCellsMS.x, render.NumCellsMS.y, render.NumCellsMS.z));
         msShader.SetFloat("CellSizeMS", render.CellSizeMS);
+        
 
         msShader.SetVector("NumChunks", new Vector4(render.NumChunks.x, render.NumChunks.y, render.NumChunks.z, render.NumChunks.w));
         msShader.SetFloat("CellSize", render.CellSize);
         msShader.SetInt("NumObjects", render.NumObjects);
+        msShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
     }
 
     public void UpdateSortIterationVariables (ComputeShader ssShader, int blockLen, bool brownPinkSort)

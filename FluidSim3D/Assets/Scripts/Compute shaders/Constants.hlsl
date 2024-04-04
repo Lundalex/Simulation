@@ -19,7 +19,7 @@ static const float SmoothViscosityLaplacianFactor = 45 / PI;
 static const int TN_RM = 8; // RayMarcher
 static const int TN_PC = 512; // PreCalc
 static const int TN_SS_R = 512; // SpatialSort
-static const int TN_MS = 8; // SpatialSort
+static const int TN_MS = 8; // MarchingSquares
 
 
 // --- Textures ---

@@ -74,6 +74,7 @@ public class Renderer : MonoBehaviour
     public ComputeBuffer CB_A;
     private bool ProgramStarted = false;
     private bool SettingsChanged = true;
+    private int OC_len = 1;
     private Vector3 lastCameraPosition;
     private Quaternion lastCameraRotation;
 
@@ -169,9 +170,9 @@ public class Renderer : MonoBehaviour
         NumChunks.w = NumChunks.x * NumChunks.y;
         NumChunksAll = NumChunks.x * NumChunks.y * NumChunks.z;
 
-        NumCellsMS = new(Mathf.CeilToInt(sim.Width / CellSizeMS),
-                        Mathf.CeilToInt(sim.Height / CellSizeMS),
-                        Mathf.CeilToInt(sim.Depth / CellSizeMS));
+        NumCellsMS = new(Mathf.CeilToInt(ChunkGridDiff.x / CellSizeMS),
+                        Mathf.CeilToInt(ChunkGridDiff.y / CellSizeMS),
+                        Mathf.CeilToInt(ChunkGridDiff.z / CellSizeMS));
 
         ChunkGridOffset = new float3(
             Mathf.Max(-MinWorldBounds.x, 0.0f),
@@ -300,11 +301,10 @@ public class Renderer : MonoBehaviour
         if (RenderTris) { ComputeHelper.DispatchKernel(ssShader, "CalcTriChunkKeys", NumTris, ssShaderThreadSize); } 
 
         // Get OccupiedChunks length
-        // THIS IS QUITE EXPENSIVE SINCE IT REQUIRES DATA TO BE SENT FROM THE GPU TO THE CPU!
-        int OC_len = ComputeHelper.GetAppendBufferCount(AC_OccupiedChunks, CB_A);
+        // Expensive since it requires data to be sent from the GPU to the CPU!
+        OC_len = ComputeHelper.GetAppendBufferCount(AC_OccupiedChunks, CB_A);
         Func.NextPow2(ref OC_len); // NextPow2() since bitonic merge sort requires pow2 array length
 
-        // Set NextPow2(OccupiedChunks count) in shader
         ssShader.SetInt("OC_len", OC_len);
 
         // Copy OccupiedChunks -> SpatialLookup
@@ -336,13 +336,11 @@ public class Renderer : MonoBehaviour
     {
         ComputeHelper.DispatchKernel(pcShader, "CalcTriNormals", NumTris, pcShaderThreadSize);
         ComputeHelper.DispatchKernel(pcShader, "SetLastRotations", NumTriObjects, pcShaderThreadSize);
-
-
     }
 
     void RunMSShader()
     {
-        ComputeHelper.DispatchKernel(msShader, "CalcGridDensities", NumChunks.xyz, msShaderThreadSize);
+        ComputeHelper.DispatchKernel(msShader, "CalcGridDensities", NumCellsMS.xyz, msShaderThreadSize);
     }
 
     void RunRMShader()

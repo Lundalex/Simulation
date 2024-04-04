@@ -316,13 +316,13 @@ MonoBehaviour:
   MinWorldBounds:
     x: 0
     y: 0
-    z: -50
+    z: -25
   MaxWorldBounds:
-    x: 50
-    y: 50
-    z: 50
+    x: 25
+    y: 25
+    z: 20
   CellSize: 0.15
-  CellSizeMS: 0.5
+  CellSizeMS: 0.1
   RenderTris: 0
   OBJ_Pos:
     x: 2

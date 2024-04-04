@@ -6,10 +6,11 @@
 const int3 NumCellsMS;
 const float CellSizeMS;
 
-// Spatial sort settings
+// Render world settings
 const int4 NumChunks;
 const float CellSize;
 const int NumObjects;
+const float3 ChunkGridOffset;
 
 RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](objectIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
@@ -30,38 +31,45 @@ int GetChunkKey(int3 chunk)
     return chunk.x + chunk.y * NumChunks.x + chunk.z * NumChunks.w;
 }
 
-float GetNearDst(float3 pos)
+NearInfo GetNear(float3 pos)
 {
     uint3 chunk = uint3(pos / CellSize);
     int chunkKey = GetChunkKey(chunk);
     int startIndex = StartIndices[chunkKey];
 
+    NearInfo nearInfo;
+    nearInfo.materialKey = -1;
     float nearDstSqr = FLT_MAX;
     int index = startIndex;
-    while (index < NumObjects && chunkKey == SpatialLookup[index].y)
+    while (index != -1 && chunkKey == SpatialLookup[index].y)
     {
         int sphereIndex = SpatialLookup[index].x;
+        Sphere sphere = Spheres[sphereIndex];
 
-        float3 dst = pos - Spheres[sphereIndex].pos;
+        float3 dst = pos - sphere.pos;
         float dstSqr = dot2(dst);
-        nearDstSqr = min(nearDstSqr, dstSqr);
+        if (dstSqr < nearDstSqr)
+        {
+            nearDstSqr = dstSqr;
+            nearInfo.materialKey = sphere.materialKey;
+        }
 
         // -- Increment index each iteration - Chunk particle search algorithm --
 
         index += 1;
     }
 
-    if (nearDstSqr != FLT_MAX) { return 0.0; }
+    nearInfo.dst = sqrt(nearDstSqr);
 
-    float nearDst = sqrt(nearDstSqr);
-
-    return nearDst;
+    return nearInfo;
 }
 
-float GetNearDstExpanded(float3 pos, int radius)
+NearInfo GetNearExpanded(float3 pos, int radius)
 {
-    int3 chunk = pos / CellSize;
+    uint3 chunk = uint3(pos / CellSize);
 
+    NearInfo nearInfo;
+    nearInfo.materialKey = -1;
     float nearDstSqr = FLT_MAX;
     for (int x = -radius; x <= radius; x++)
     {
@@ -80,10 +88,15 @@ float GetNearDstExpanded(float3 pos, int radius)
                 while (index != -1 && chunkKey == SpatialLookup[index].y)
                 {
                     int sphereIndex = SpatialLookup[index].x;
+                    Sphere sphere = Spheres[sphereIndex];
 
-                    float3 dst = pos - Spheres[sphereIndex].pos;
+                    float3 dst = pos - sphere.pos;
                     float dstSqr = dot2(dst);
-                    nearDstSqr = min(nearDstSqr, dstSqr);
+                    if (dstSqr < nearDstSqr)
+                    {
+                        nearDstSqr = dstSqr;
+                        nearInfo.materialKey = sphere.materialKey;
+                    }
 
                     // -- Increment index each iteration - Chunk particle search algorithm --
 
@@ -93,18 +106,18 @@ float GetNearDstExpanded(float3 pos, int radius)
         }
     }
 
-    float nearDst = sqrt(nearDstSqr);
+    nearInfo.dst = sqrt(nearDstSqr);
 
-    return nearDst;
+    return nearInfo;
 }
 
 // Similar to a density map, but cheaper
 [numthreads(TN_MS,TN_MS,TN_MS)]
 void CalcGridDensities (uint3 msCell : SV_DispatchThreadID)
 {
-    float3 pos = msCell * CellSizeMS + .5 * CellSizeMS;
+    float3 pos = (msCell + 0.5) * CellSizeMS + ChunkGridOffset;
 
-    float nearDst = GetNearDst(pos);
+    NearInfo nearInfo = GetNear(pos);
 
-    GridDensities[msCell] = max(1 - nearDst, 0.01);
+    GridDensities[msCell] = max(1 - nearInfo.dst*0.02, 0.01) + nearInfo.materialKey*.5;
 }

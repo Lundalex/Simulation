@@ -47,12 +47,12 @@ void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
     if (i >= ParticlesNum) { return; }
 
     PData pData = PDataB[i];
-    // PType pType = PTypes[Extract_PType(pData.LastChunkKey_PType_POrder)];
-    int pTypeIndex = Extract_PType(pData.LastChunkKey_PType_POrder);
+    // PType pType = PTypes[Extract_PType(pData.lastChunkKey_PType_POrder)];
+    int pTypeIndex = Extract_PType(pData.lastChunkKey_PType_POrder);
 
     Sphere sphere;
 
-    float3 pos = float3(pData.Position.x, pData.Position.y, pData.Position.z) * .1;
+    float3 pos = float3(pData.pos.x, pData.pos.y * 1.5, pData.pos.z) * .1;
     sphere.pos = ApplyTransformTriVertices(Rot, pos - float3(7.5, 10, 2.5)) + float3(15, 10, 2.5);
     sphere.radius = Radius;
     sphere.materialKey = pTypeIndex == 1 || pTypeIndex == 2 ? 1 : 0;
