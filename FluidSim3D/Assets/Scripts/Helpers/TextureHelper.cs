@@ -12,7 +12,7 @@ public class TextureHelper : MonoBehaviour
     private int3 LastResolution;
     private int LastCellSize;
 
-// --- CREATE TEXTURES (2D + 3D) ---
+#region Create Textures (2D + 3D)
 
     /// <summary>Creates a 3D render texture</summary>
     /// <remarks>Using (int3)resolution</remarks>
@@ -189,9 +189,9 @@ public class TextureHelper : MonoBehaviour
             texture.Create();
         }
     }
+#endregion
 
-
-// --- MODIFY TEXTURES (3D) ---
+#region Modify Textures (3D)
 
     /// <summary>Assigns a SHALLOW COPY (no reference) of a 3D render texture</summary>
     public void Copy (ref RenderTexture texture, RenderTexture textureA, int3 resolution)
@@ -310,9 +310,9 @@ public class TextureHelper : MonoBehaviour
             ComputeHelper.DispatchKernel(tcShader, "BoxBlur_3D_F1", resolution, tbShaderThreadSize);
         }
     }
+#endregion
 
-
-// --- SET NOISE TEXTURE ---
+#region Set Noise Textures
 
     /// <summary>Creates a perlin noise texture and appends it to a 3D render texture</summary>
     public void SetPerlin (ref RenderTexture texture, int3 resolution, int cellSize, int rngSeed)
@@ -354,9 +354,9 @@ public class TextureHelper : MonoBehaviour
         ngShader.SetTexture(3, "VoronoiNoise", texture);
         ComputeHelper.DispatchKernel(ngShader, "Voronoi", resolution, ngShaderThreadSize);
     }
+#endregion
 
-
-// --- CLASS ---
+#region Class
 
     /// <summary>Updates INTERNAL script textures</summary>
     /// <remarks>Should only be called from WITHIN the internal class, or at OBJECT INITIALISATION</remarks>
@@ -375,4 +375,5 @@ public class TextureHelper : MonoBehaviour
         LastResolution = newResolution;
         LastCellSize = newCellSize;
     }
+#endregion
 }

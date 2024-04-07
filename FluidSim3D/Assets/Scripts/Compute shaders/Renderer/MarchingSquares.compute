@@ -1,7 +1,8 @@
 #pragma kernel CalcGridDensities // 0
 #pragma kernel FindSurface // 1
 #pragma kernel GenerateFluidMesh // 2
-#pragma kernel TransferFluidMesh // 3
+#pragma kernel DeleteFluidMesh // 3
+#pragma kernel TransferFluidMesh // 4
 
 #include "RendererResources.hlsl"
 #include "LookupTableMS.hlsl"
@@ -13,6 +14,9 @@ const float CellSizeMS;
 const uint4 NumChunks;
 const float CellSize;
 const float3 ChunkGridOffset;
+
+const uint DynamicNumTris;
+const uint ReservedNumTris;
 
 RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](objectIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
@@ -139,12 +143,12 @@ void FindSurface (uint3 baseCell : SV_DispatchThreadID)
     float densities[8];
     bool c0_0_0 = GridDensities[baseCell] == 0.0;
     bool c1_0_0 = GridDensities[baseCell + uint3(1,0,0)] == 0.0;
-    bool c0_1_0 = GridDensities[baseCell + uint3(0,1,0)] == 0.0;
-    bool c1_1_0 = GridDensities[baseCell + uint3(1,1,0)] == 0.0;
-    bool c0_0_1 = GridDensities[baseCell + uint3(0,0,1)] == 0.0;
-    bool c1_0_1 = GridDensities[baseCell + uint3(1,0,1)] == 0.0;
-    bool c0_1_1 = GridDensities[baseCell + uint3(0,1,1)] == 0.0;
-    bool c1_1_1 = GridDensities[baseCell + uint3(1,1,1)] == 0.0;
+    bool c0_1_0 = GridDensities[baseCell + uint3(1,0,1)] == 0.0;
+    bool c1_1_0 = GridDensities[baseCell + uint3(0,0,1)] == 0.0;
+    bool c0_0_1 = GridDensities[baseCell + uint3(0,1,0)] == 0.0;
+    bool c1_0_1 = GridDensities[baseCell + uint3(1,1,0)] == 0.0;
+    bool c0_1_1 = GridDensities[baseCell + uint3(1,1,1)] == 0.0;
+    bool c1_1_1 = GridDensities[baseCell + uint3(0,1,1)] == 0.0;
 
     if ((c0_0_0 || c1_0_0 || c0_1_0 || c1_1_0 || c0_0_1 || c1_0_1 || c0_1_1 || c1_1_1)
         && !(c0_0_0 && c1_0_0 && c0_1_0 && c1_1_0 && c0_0_1 && c1_0_1 && c0_1_1 && c1_1_1))
@@ -168,17 +172,18 @@ float3 interpolateVerts(float d1, float d2, float3 v1, float3 v2, float threshol
 [numthreads(TN_MS2,1,1)]
 void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
 {
-    int3 baseCell = SurfaceCellsCONSUME.Consume();
+    // uint3 baseCell = id.xyz;
+    uint3 baseCell = uint3(SurfaceCellsCONSUME.Consume());
 
     uint3 localPositions[8] = {
         baseCell,
         baseCell + uint3(1,0,0),
+        baseCell + uint3(1,0,1),
+        baseCell + uint3(0,0,1),
         baseCell + uint3(0,1,0),
         baseCell + uint3(1,1,0),
-        baseCell + uint3(0,0,1),
-        baseCell + uint3(1,0,1),
-        baseCell + uint3(0,1,1),
-        baseCell + uint3(1,1,1)
+        baseCell + uint3(1,1,1),
+        baseCell + uint3(0,1,1)
     };
 
     float densities[8] = {
@@ -198,14 +203,14 @@ void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
     // The value is used to look up the edge table, which indicates which edges of the cube are cut by the isosurface.
     float threshold = 0.5;
     int cubeIndex = 0;
-    if (densities[0] < threshold) cubeIndex |= 1;
-    if (densities[1] < threshold) cubeIndex |= 2;
-    if (densities[2] < threshold) cubeIndex |= 4;
-    if (densities[3] < threshold) cubeIndex |= 8;
-    if (densities[4] < threshold) cubeIndex |= 16;
-    if (densities[5] < threshold) cubeIndex |= 32;
-    if (densities[6] < threshold) cubeIndex |= 64;
-    if (densities[7] < threshold) cubeIndex |= 128;
+    if (densities[0] > threshold) cubeIndex |= 1;
+    if (densities[1] > threshold) cubeIndex |= 2;
+    if (densities[2] > threshold) cubeIndex |= 4;
+    if (densities[3] > threshold) cubeIndex |= 8;
+    if (densities[4] > threshold) cubeIndex |= 16;
+    if (densities[5] > threshold) cubeIndex |= 32;
+    if (densities[6] > threshold) cubeIndex |= 64;
+    if (densities[7] > threshold) cubeIndex |= 128;
 
     // Create triangles for current cube configuration
     for (int i = 0; triangulation[cubeIndex][i] != -1; i +=3) {
@@ -235,9 +240,27 @@ void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
 }
 
 [numthreads(TN_MS2,1,1)]
+void DeleteFluidMesh (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= DynamicNumTris) return;
+    uint i = id.x + ReservedNumTris;
+
+    Tri tri;
+    tri.vA = 0;
+    tri.vB = 0;
+    tri.vC = 0;
+    tri.normal = 0;
+    tri.materialKey = 0;
+    tri.parentKey = 0;
+
+    Tris[i] = tri;
+}
+
+[numthreads(TN_MS2,1,1)]
 void TransferFluidMesh (uint3 id : SV_DispatchThreadID)
 {
     Tri2 tri2 = FluidTriMeshCONSUME.Consume();
+    if (all(tri2.vA) == 0 && all(tri2.vB) == 0 && all(tri2.vC) == 0) return;
 
     Tri tri;
     tri.vA = tri2.vA;
@@ -247,5 +270,5 @@ void TransferFluidMesh (uint3 id : SV_DispatchThreadID)
     tri.materialKey = 0;
     tri.parentKey = 0;
 
-    Tris[id.x] = tri;
+    Tris[id.x + ReservedNumTris] = tri;
 }

@@ -6,7 +6,7 @@ using Resources;
 public static class ComputeHelper
 {
 
-// --- KERNEL DISPATCH ---
+#region Kernel Dispatch
 
     /// <summary>Dispatch a shader kernel</summary>
     /// <remarks>Uses (int)threadsNum, threadSize</remarks>
@@ -47,9 +47,9 @@ public static class ComputeHelper
     {
         cs.Dispatch(cs.FindKernel(kernelName), threadGroupsNums.x, threadGroupsNums.y, threadGroupsNums.z);
     }
+#endregion
 
-
-// --- CREATE BUFFERS ---
+#region Create Buffers
 
     /// <summary>Create an append buffer</summary>
     /// <returns>Without ref</returns>
@@ -78,11 +78,19 @@ public static class ComputeHelper
 	}
     /// <summary>Create a structured buffer</summary>
     /// <returns>-> ref buffer</returns>
-	public static void CreateStructuredBuffer<T>(ref ComputeBuffer buffer, T[] data) // T is the buffer struct
-	{
-		buffer ??= new ComputeBuffer(data.Length, GetStride<T>());
-		buffer.SetData(data);
-	}
+    public static void CreateStructuredBuffer<T>(ref ComputeBuffer buffer, T[] data) // T is the buffer struct
+    {
+            int length = Mathf.Max(1, data.Length);
+            int stride = GetStride<T>();
+
+            if (buffer == null || !buffer.IsValid() || buffer.count != length || buffer.stride != stride)
+            {
+                buffer?.Release();
+                buffer = new ComputeBuffer(length, stride, ComputeBufferType.Structured);
+            }
+
+            buffer.SetData(data);
+    }
     /// <summary>Create a structured buffer</summary>
     /// <returns>Without ref</returns>
 	public static ComputeBuffer CreateStructuredBuffer<T>(int count) // T is the buffer struct
@@ -94,7 +102,15 @@ public static class ComputeHelper
     /// <returns>-> ref buffer</returns>
 	public static void CreateStructuredBuffer<T>(ref ComputeBuffer buffer, int count) // T is the buffer struct
 	{
-		buffer = new ComputeBuffer(count, GetStride<T>());
+		count = Mathf.Max(1, count);
+		int stride = GetStride<T>();
+
+		bool createNewBuffer = buffer == null || !buffer.IsValid() || buffer.count != count || buffer.stride != stride;
+		if (createNewBuffer)
+		{
+			Release(buffer);
+			buffer = new ComputeBuffer(count, stride, ComputeBufferType.Structured);
+		}
 	}
     /// <summary>Create a count buffer</summary>
     /// <returns>Without ref</returns>
@@ -109,9 +125,9 @@ public static class ComputeHelper
     {
         countBuffer = new ComputeBuffer(1, sizeof(int), ComputeBufferType.Raw);
     }
+#endregion
 
-
-// --- GET APPEND BUFFER COUNT ---
+#region Get Append Buffer Count
 
     /// <summary>Get append buffer count</summary>
     /// <remarks>Uses an countBuffer</remarks>
@@ -159,10 +175,11 @@ public static class ComputeHelper
 			texture.Release(); // RenderTexture class passed by reference automatically
 		}
 	}
+#endregion
 
-
-// --- CLASS ---
+#region Class
 
     /// <returns>The combined stride (size in bytes) of a struct/datatype</returns>
     public static int GetStride<T>() => System.Runtime.InteropServices.Marshal.SizeOf(typeof(T));
+#endregion
 }

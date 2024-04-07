@@ -7,6 +7,7 @@ using System.Numerics;
 
 namespace Resources
 {
+#region Utilities
     public static class Utils
     {
         public static int GetThreadGroupsNum(int threadsNum, int threadSize)
@@ -60,7 +61,8 @@ namespace Resources
             return new float3(posX, posY, posZ);
         }
     }
-
+#endregion
+#region Functions
     public static class Func
     {
         public static void Log2(ref int a, bool doCeil = false)
@@ -136,4 +138,5 @@ namespace Resources
             return Mathf.CeilToInt(a / divisor) * divisor;
         }
     }
+#endregion
 }

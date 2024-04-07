@@ -87,6 +87,7 @@ public class Renderer : MonoBehaviour
     [NonSerialized] public int NumSpheres;
     [NonSerialized] public int NumTriObjects;
     [NonSerialized] public int ReservedNumTris;
+    [NonSerialized] public int DynamicNumTris;
     [NonSerialized] public int NumTris;
     [NonSerialized] public int NumObjects_NextPow2;
     [NonSerialized] public int4 NumChunks;
@@ -155,7 +156,7 @@ public class Renderer : MonoBehaviour
                 parentKey = 0,
             };
         }
-        ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, 5000);
+        ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, Tris);
 
         SetTriObjectData();
     }
@@ -165,7 +166,7 @@ public class Renderer : MonoBehaviour
         NumSpheres = Spheres.Length;
         NumTriObjects = TriObjects.Length;
 
-        UpdateNumTris(5000, true);
+        UpdateNumTris(1, true);
 
         float3 ChunkGridDiff = MaxWorldBounds - MinWorldBounds;
         NumChunks = new(Mathf.CeilToInt(ChunkGridDiff.x / CellSize),
@@ -185,15 +186,19 @@ public class Renderer : MonoBehaviour
         );
     }
 
-    void UpdateNumTris(int dynamicTrisNum, bool overrideCheck = false)
+    void UpdateNumTris(int newDynamicNumTris, bool overrideCheck = false)
     {
-        if (dynamicTrisNum > NumTris - ReservedNumTris || overrideCheck)
+        if (newDynamicNumTris > NumTris - ReservedNumTris || overrideCheck)
         {
-            NumTris = ReservedNumTris + dynamicTrisNum;
+            DynamicNumTris = newDynamicNumTris;
+            NumTris = ReservedNumTris + newDynamicNumTris;
             NumObjects = NumSpheres + NumTris;
             NumObjects_NextPow2 = Func.NextPow2(NumObjects);
 
-            shaderHelper.UpdateTriSettings();
+            ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, NumTris);
+            Debug.Log(NumTris);
+
+            shaderHelper.UpdateTriSettings(msShader, pcShader, rmShader, ssShader);
         }
     }
 
@@ -374,10 +379,11 @@ public class Renderer : MonoBehaviour
 
         UpdateNumTris(FTM_len);
 
+        ComputeHelper.DispatchKernel(msShader, "DeleteFluidMesh", Mathf.Max(DynamicNumTris, 1), msShaderThreadSize2);
         ComputeHelper.DispatchKernel(msShader, "TransferFluidMesh", Mathf.Max(FTM_len, 1), msShaderThreadSize2);
 
-        B_Tris.GetData(Tris);
-        int a = 0;
+        // B_Tris.GetData(Tris);
+        // int a = 0;
     }
 
     void RunRMShader()
@@ -390,7 +396,7 @@ public class Renderer : MonoBehaviour
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
         // Main program loop
-        RunMSShader(); // MarchingSquares
+        RunMSShader(); // MarchingCubes
         if (SettingsChanged) { RunPCShader(); SettingsChanged = false; } // PreCalc
         RunSSShader(); // SpatialSort
         RunRMShader(); // RayMarcher

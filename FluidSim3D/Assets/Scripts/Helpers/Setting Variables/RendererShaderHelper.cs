@@ -78,8 +78,10 @@ public class RendererShaderHelper : MonoBehaviour
         msShader.SetBuffer(2, "SurfaceCellsCONSUME", render.AC_SurfaceCells);
         msShader.SetBuffer(2, "FluidTriMeshAPPEND", render.AC_FluidTriMesh);
 
-        msShader.SetBuffer(3, "FluidTriMeshCONSUME", render.AC_FluidTriMesh);
         msShader.SetBuffer(3, "Tris", render.B_Tris);
+
+        msShader.SetBuffer(4, "FluidTriMeshCONSUME", render.AC_FluidTriMesh);
+        msShader.SetBuffer(4, "Tris", render.B_Tris);
     }
 
 // --- SHADER SETTINGS / VARIABLES ---
@@ -214,8 +216,18 @@ public class RendererShaderHelper : MonoBehaviour
         ngShader.SetInt("FrameCount", render.FrameCount);
     }
 
-    public void UpdateTriSettings ()
+    public void UpdateTriSettings (ComputeShader msShader, ComputeShader pcShader, ComputeShader rmShader, ComputeShader ssShader)
     {
-        // TODO
+        msShader.SetInt("DynamicNumTris", render.DynamicNumTris);
+        msShader.SetInt("ReservedNumTris", render.ReservedNumTris);
+
+        pcShader.SetInt("NumTris", render.NumTris);
+        rmShader.SetInt("NumTris", render.Tris.Length);
+
+        ssShader.SetBuffer(1, "Tris", render.B_Tris);
+        pcShader.SetBuffer(0, "Tris", render.B_Tris);
+        rmShader.SetBuffer(0, "Tris", render.B_Tris);
+        msShader.SetBuffer(4, "Tris", render.B_Tris);
+        msShader.SetBuffer(3, "Tris", render.B_Tris);
     }
 }

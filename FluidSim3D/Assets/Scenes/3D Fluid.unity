@@ -311,7 +311,7 @@ MonoBehaviour:
   DefocusStrength: 0
   focalPlaneFactor: 16
   MaxStepSize: 0.25
-  TriMeshSafety: 0.2
+  TriMeshSafety: 0.47
   FrameCount: 0
   ChunksPerObject: 60
   MinWorldBounds:
@@ -323,7 +323,7 @@ MonoBehaviour:
     y: 25
     z: 20
   CellSize: 0.1
-  CellSizeMS: 1
+  CellSizeMS: 0.6
   RenderTris: 1
   OBJ_Pos:
     x: 8

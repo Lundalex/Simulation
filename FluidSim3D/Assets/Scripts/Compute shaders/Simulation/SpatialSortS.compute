@@ -104,7 +104,7 @@ int GetNeighboorParticlesNum(int chunkKey)
 void CalculateChunkKeys (uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;
-    if (i >= ParticlesNum_NextPow2) { return; }
+    if (i >= ParticlesNum_NextPow2) return;
     if (i < ParticlesNum)
     {
         uint chunkKey = GetChunkKeyFromPosition(PDataB[i].pos);
@@ -120,7 +120,7 @@ void CalculateChunkKeys (uint3 id : SV_DispatchThreadID)
 void SortIteration (uint3 id : SV_DispatchThreadID)
 {
     uint lowRef = id.x;
-    if (lowRef >= ParticlesNum) { return; }
+    if (lowRef >= ParticlesNum) return;
 
     uint relBlock = (int)(2 * lowRef / (uint)BlockLen);
     uint relPos = lowRef % (0.5 * BlockLen);
@@ -152,7 +152,7 @@ void PrepStartIndices (uint3 id : SV_DispatchThreadID)
 void PopulateStartIndices (uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;
-    if (i >= ParticlesNum) { return; }
+    if (i >= ParticlesNum) return;
     
     uint chunkKey = SpatialLookup[i].y;
     uint LastChunkKey = ParticlesNum;
@@ -220,7 +220,7 @@ void CopySpringCapacities (uint3 id : SV_DispatchThreadID)
 void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;
-    if (i >= ChunksNumAll) { return; }
+    if (i >= ChunksNumAll) return; 
     // A <-> C
     if (FrameBufferCycle)
     {
