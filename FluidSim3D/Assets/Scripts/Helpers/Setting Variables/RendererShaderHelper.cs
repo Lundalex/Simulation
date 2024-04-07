@@ -67,7 +67,6 @@ public class RendererShaderHelper : MonoBehaviour
         msShader.SetBuffer(0, "SpatialLookup", render.B_SpatialLookup);
         msShader.SetBuffer(0, "StartIndices", render.B_StartIndices);
         msShader.SetBuffer(0, "Spheres", render.B_Spheres);
-
         msShader.SetTexture(0, "GridDensities", render.T_GridDensities);
 
         msShader.SetBuffer(1, "SurfaceCellsAPPEND", render.AC_SurfaceCells);

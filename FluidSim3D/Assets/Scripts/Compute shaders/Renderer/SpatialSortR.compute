@@ -126,8 +126,8 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
     // A high value will decrease the risk of visual artifacts BUT tanks frame rate
     float boxPadding = 0.0;
 
-    int3 minChunk = int3(floor((minBounds + parentPos - boxPadding) / CellSize)) - 1; // TEMP
-    int3 maxChunk = int3(floor((maxBounds + parentPos + boxPadding) / CellSize)) + 1; // TEMP
+    int3 minChunk = int3(floor((minBounds + parentPos - boxPadding) / CellSize)) - 2; // TEMP
+    int3 maxChunk = int3(floor((maxBounds + parentPos + boxPadding) / CellSize)) + 2; // TEMP
 
     for (int x = minChunk.x; x <= maxChunk.x; x++)
     {

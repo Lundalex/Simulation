@@ -4,6 +4,7 @@ using System;
 
 // Import utils from Resources.cs
 using Resources;
+using UnityEditor;
 
 public class Renderer : MonoBehaviour
 {
@@ -188,7 +189,7 @@ public class Renderer : MonoBehaviour
 
     void UpdateNumTris(int newDynamicNumTris, bool overrideCheck = false)
     {
-        if (newDynamicNumTris > NumTris - ReservedNumTris || overrideCheck)
+        if (newDynamicNumTris > DynamicNumTris || overrideCheck)
         {
             DynamicNumTris = newDynamicNumTris;
             NumTris = ReservedNumTris + newDynamicNumTris;
@@ -318,7 +319,7 @@ public class Renderer : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<Material2>(ref B_Materials, Materials);
     }
     
-    void RunSSShader()
+    public void RunSSShader()
     {
         // Fill OccupiedChunks
         AC_OccupiedChunks.SetCounterValue(0);
@@ -357,18 +358,18 @@ public class Renderer : MonoBehaviour
         ComputeHelper.DispatchKernel(ssShader, "PopulateStartIndices", OC_len, ssShaderThreadSize);
     }
 
-    void RunPCShader()
+    public void RunPCShader()
     {
         ComputeHelper.DispatchKernel(pcShader, "CalcTriNormals", NumTris, pcShaderThreadSize);
         ComputeHelper.DispatchKernel(pcShader, "SetLastRotations", NumTriObjects, pcShaderThreadSize);
     }
 
-    void RunMSShader()
+    public void RunMSShader()
     {
         ComputeHelper.DispatchKernel(msShader, "CalcGridDensities", NumCellsMS.xyz, msShaderThreadSize);
 
         AC_SurfaceCells.SetCounterValue(0);
-        ComputeHelper.DispatchKernel(msShader, "FindSurface", NumCellsMS.xyz-1, msShaderThreadSize);
+        ComputeHelper.DispatchKernel(msShader, "FindSurface", NumCellsMS.xyz, msShaderThreadSize);
 
         int SC_len = ComputeHelper.GetAppendBufferCount(AC_SurfaceCells, CB_A);
 
@@ -381,12 +382,9 @@ public class Renderer : MonoBehaviour
 
         ComputeHelper.DispatchKernel(msShader, "DeleteFluidMesh", Mathf.Max(DynamicNumTris, 1), msShaderThreadSize2);
         ComputeHelper.DispatchKernel(msShader, "TransferFluidMesh", Mathf.Max(FTM_len, 1), msShaderThreadSize2);
-
-        // B_Tris.GetData(Tris);
-        // int a = 0;
     }
 
-    void RunRMShader()
+    public void RunRMShader()
     {
         ComputeHelper.DispatchKernel(rmShader, "TraceRays", Resolution, rmShaderThreadSize);
 
@@ -395,8 +393,8 @@ public class Renderer : MonoBehaviour
 
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
-        // Main program loop
-        RunMSShader(); // MarchingCubes
+        // if (FrameCount % 256 == 0) { RunMSShader(); } // MarchingCubes
+        RunMSShader();
         if (SettingsChanged) { RunPCShader(); SettingsChanged = false; } // PreCalc
         RunSSShader(); // SpatialSort
         RunRMShader(); // RayMarcher

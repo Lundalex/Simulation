@@ -55,6 +55,7 @@ void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
     float3 pos = float3(pData.pos.x, pData.pos.y * 1.5, pData.pos.z) * .1;
     sphere.pos = ApplyTransformTriVertices(Rot, pos - float3(7.5, 10, 2.5)) + float3(15, 10, 2.5);
     sphere.radius = Radius;
+    sphere.materialKey = 0;
     sphere.materialKey = pTypeIndex == 1 || pTypeIndex == 2 ? 1 : 0;
 
     Spheres[i] = sphere;

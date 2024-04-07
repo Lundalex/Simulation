@@ -310,8 +310,8 @@ MonoBehaviour:
   ScatterProbability: 1
   DefocusStrength: 0
   focalPlaneFactor: 16
-  MaxStepSize: 0.25
-  TriMeshSafety: 0.47
+  MaxStepSize: 0.19
+  TriMeshSafety: 0.2
   FrameCount: 0
   ChunksPerObject: 60
   MinWorldBounds:
@@ -323,12 +323,12 @@ MonoBehaviour:
     y: 25
     z: 20
   CellSize: 0.1
-  CellSizeMS: 0.6
+  CellSizeMS: 1
   RenderTris: 1
   OBJ_Pos:
-    x: 8
-    y: 12
-    z: -15
+    x: 0
+    y: 3
+    z: -50
   OBJ_Rot:
     x: 0
     y: 0
@@ -391,6 +391,7 @@ MonoBehaviour:
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   shaderHelper: {fileID: 868168750}
   textureCreator: {fileID: 473926887}
+  manager: {fileID: 1164272048}
   sim: {fileID: 2125271849}
   LoadOBJMesh: {fileID: -2432090755550338912, guid: cbfc12edff426ee4ca1fef259989a787, type: 3}
 --- !u!114 &868168750
@@ -448,6 +449,7 @@ MonoBehaviour:
   sim: {fileID: 2125271849}
   texture: {fileID: 473926887}
   dtShader: {fileID: 7200000, guid: d1021112b3303574191bcb6a5e085237, type: 3}
+  adda: 1
 --- !u!4 &1164272049
 Transform:
   m_ObjectHideFlags: 0

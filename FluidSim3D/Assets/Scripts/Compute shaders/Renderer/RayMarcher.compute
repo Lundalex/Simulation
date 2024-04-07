@@ -271,7 +271,7 @@ void TraceRays (uint3 id : SV_DispatchThreadID)
     }
     combinedTraceInfo.incomingLight /= float(RaysPerPixel);
 
-    // Combine prev frame with current frame. Weight the contributions to result in an average over all frames - DOESN'T WORK NOW FOR SOME REASON
+    // Combine prev frame with current frame. Weight the contributions to result in an average over all frames
     float3 col = combinedTraceInfo.incomingLight;
     // float3 colPrev = float3(Result[id.xy].x, Result[id.xy].y, Result[id.xy].z);
 

@@ -45,7 +45,6 @@ public class ProgramManager : MonoBehaviour
         dtShader.SetVector("Rot", new Vector3(Rot.x, Rot.y, Rot.z));
 
         ComputeHelper.DispatchKernel(dtShader, "TransferParticlePositionData", sim.ParticlesNum, dtShaderThreadSize);
-        
         render.UpdateRendererData();
     }
 }
