@@ -5,26 +5,25 @@
 #pragma kernel TransferFluidMesh // 4
 
 #include "RendererResources.hlsl"
-#include "LookupTableMS.hlsl"
+#include "LookupTableMC.hlsl"
 
 // Marching squares settings
 const float CellSizeMS;
 
 // Render world settings
 const uint4 NumChunks;
-const float CellSize;
+const float CellSizeSL;
 const float3 ChunkGridOffset;
 
 const uint DynamicNumTris;
 const uint ReservedNumTris;
 
-RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](objectIndex, ChunkKey)
+RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](sphereIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
 
-RWStructuredBuffer<Sphere> Spheres;
+RWStructuredBuffer<float3> Points;
 
 RWTexture3D<float> GridDensities;
-RWTexture3D<float> SurfaceCells;
 
 AppendStructuredBuffer<int3> SurfaceCellsAPPEND;
 ConsumeStructuredBuffer<int3> SurfaceCellsCONSUME;
@@ -48,7 +47,7 @@ int GetChunkKey(int3 chunk)
 
 NearInfo GetNear(float3 pos)
 {
-    int3 chunk = int3(pos / CellSize);
+    int3 chunk = int3(pos / CellSizeSL);
     int chunkKey = GetChunkKey(chunk);
     int startIndex = StartIndices[chunkKey];
 
@@ -58,16 +57,12 @@ NearInfo GetNear(float3 pos)
     int index = startIndex;
     while (index != -1 && chunkKey == SpatialLookup[index].y && index - startIndex < 5)
     {
-        int sphereIndex = SpatialLookup[index].x;
-        Sphere sphere = Spheres[sphereIndex];
+        int pointIndex = SpatialLookup[index].x;
+        float3 point2 = Points[pointIndex];
 
-        float3 dst = pos - sphere.pos;
+        float3 dst = pos - point2;
         float dstSqr = dot2(dst);
-        if (dstSqr < nearDstSqr)
-        {
-            nearDstSqr = dstSqr;
-            nearInfo.materialKey = sphere.materialKey;
-        }
+        nearDstSqr = min(nearDstSqr, dstSqr);
 
         // -- Increment index each iteration - Chunk particle search algorithm --
 
@@ -79,9 +74,9 @@ NearInfo GetNear(float3 pos)
     return nearInfo;
 }
 
-NearInfo GetNearExpanded(float3 pos, int radius)
+NearInfo GetNearExtended(float3 pos, int radius)
 {
-    int3 chunk = int3(pos / CellSize);
+    int3 chunk = int3(pos / CellSizeSL);
 
     NearInfo nearInfo;
     nearInfo.materialKey = -1;
@@ -102,19 +97,15 @@ NearInfo GetNearExpanded(float3 pos, int radius)
                 int index = startIndex;
                 while (index != -1 && chunkKey == SpatialLookup[index].y && index - startIndex < 5)
                 {
-                    int sphereIndex = SpatialLookup[index].x;
-                    Sphere sphere = Spheres[sphereIndex];
-
-                    float3 dst = pos - sphere.pos;
+                    int pointIndex = SpatialLookup[index].x;
+                    float3 point2 = Points[pointIndex];
+            
+                    float3 dst = pos - point2;
                     float dstSqr = dot2(dst);
-                    if (dstSqr < nearDstSqr)
-                    {
-                        nearDstSqr = dstSqr;
-                        nearInfo.materialKey = sphere.materialKey;
-                    }
-
+                    nearDstSqr = min(nearDstSqr, dstSqr);
+            
                     // -- Increment index each iteration - Chunk particle search algorithm --
-
+            
                     index += 1;
                 }
             }
@@ -130,37 +121,34 @@ NearInfo GetNearExpanded(float3 pos, int radius)
 [numthreads(TN_MS,TN_MS,TN_MS)]
 void CalcGridDensities (uint3 msCell : SV_DispatchThreadID)
 {
-    // if (!ValidChunk(msCell)) return;
+    if (!ValidChunk(msCell)) return;
 
-    float3 pos = msCell * CellSizeMS;
-    NearInfo nearInfo = GetNear(pos);
+    float3 pos = msCell * CellSizeMS + ChunkGridOffset;
+    NearInfo nearInfo = GetNearExtended(pos, 2);
 
-    GridDensities[msCell] = nearInfo.dst > 40.0 ? 0.0 : 1.0;
+    GridDensities[msCell] = max(1 - nearInfo.dst*1.3, 0);
 }
 
 [numthreads(TN_MS,TN_MS,TN_MS)]
 void FindSurface (uint3 baseCell : SV_DispatchThreadID)
 {
-    if (!ValidChunk(baseCell)) return;
+    if (!ValidChunk(baseCell+1)) return;
 
-    bool c0_0_0 = GridDensities[baseCell] == 0.0;
-    bool c1_0_0 = GridDensities[baseCell + uint3(1,0,0)] == 0.0;
-    bool c0_1_0 = GridDensities[baseCell + uint3(1,0,1)] == 0.0;
-    bool c1_1_0 = GridDensities[baseCell + uint3(0,0,1)] == 0.0;
-    bool c0_0_1 = GridDensities[baseCell + uint3(0,1,0)] == 0.0;
-    bool c1_0_1 = GridDensities[baseCell + uint3(1,1,0)] == 0.0;
-    bool c0_1_1 = GridDensities[baseCell + uint3(1,1,1)] == 0.0;
-    bool c1_1_1 = GridDensities[baseCell + uint3(0,1,1)] == 0.0;
+    float threshold = 0.5;
+
+    bool c0_0_0 = GridDensities[baseCell] < threshold;
+    bool c1_0_0 = GridDensities[baseCell + uint3(1,0,0)] < threshold;
+    bool c0_1_0 = GridDensities[baseCell + uint3(1,0,1)] < threshold;
+    bool c1_1_0 = GridDensities[baseCell + uint3(0,0,1)] < threshold;
+    bool c0_0_1 = GridDensities[baseCell + uint3(0,1,0)] < threshold;
+    bool c1_0_1 = GridDensities[baseCell + uint3(1,1,0)] < threshold;
+    bool c0_1_1 = GridDensities[baseCell + uint3(1,1,1)] < threshold;
+    bool c1_1_1 = GridDensities[baseCell + uint3(0,1,1)] < threshold;
 
     if ((c0_0_0 || c1_0_0 || c0_1_0 || c1_1_0 || c0_0_1 || c1_0_1 || c0_1_1 || c1_1_1)
         && !(c0_0_0 && c1_0_0 && c0_1_0 && c1_1_0 && c0_0_1 && c1_0_1 && c0_1_1 && c1_1_1))
     {
-        SurfaceCells[baseCell] = 1.0;
         SurfaceCellsAPPEND.Append(int3(baseCell));
-    }
-    else
-    {
-        SurfaceCells[baseCell] = 0.2;
     }
 }
 
@@ -175,7 +163,7 @@ float3 interpolateVerts(float d1, float d2, float3 v1, float3 v2, float threshol
 void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
 {
     uint3 baseCell = uint3(SurfaceCellsCONSUME.Consume());
-    if (!ValidChunk(baseCell)) return;
+    if (!ValidChunk(baseCell+1)) return;
 
     uint3 localPositions[8] = {
         baseCell,
@@ -198,14 +186,6 @@ void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
         GridDensities[localPositions[6]],
         GridDensities[localPositions[7]]
     };
-
-    // for(int j = 0; j < 8; j++)
-    // {
-    //     if (!ValidChunk(localPositions[j]))
-    //     {
-    //         densities[j] = 0.0;
-    //     }
-    // }
 
     // Calculate unique index for each cube configuration.
     // There are 256 possible values
@@ -242,9 +222,9 @@ void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
         tri.vC = interpolateVerts(densities[a2], densities[b2], localPositions[a2], localPositions[b2], threshold);
 
         // Transform to render world space
-        tri.vA = tri.vA * CellSizeMS + ChunkGridOffset;
-        tri.vB = tri.vB * CellSizeMS + ChunkGridOffset;
-        tri.vC = tri.vC * CellSizeMS + ChunkGridOffset;
+        tri.vA = tri.vA * CellSizeMS;
+        tri.vB = tri.vB * CellSizeMS;
+        tri.vC = tri.vC * CellSizeMS;
 
         FluidTriMeshAPPEND.Append(tri);
     }

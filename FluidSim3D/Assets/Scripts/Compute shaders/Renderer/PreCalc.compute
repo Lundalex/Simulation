@@ -32,9 +32,11 @@ void CalcTriNormals (uint3 id : SV_DispatchThreadID)
         ApplyTransformTriVertices(rotDiff, tri.vA, tri.vB, tri.vC);
 
         tri.normal = GetPlaneNormal(tri.vA, tri.vB, tri.vC);
-
-        Tris[i] = tri;
     }
+
+    tri.normal = GetPlaneNormal(tri.vA, tri.vB, tri.vC);
+
+    Tris[i] = tri;
 }
 
 [numthreads(TN_PC,1,1)]

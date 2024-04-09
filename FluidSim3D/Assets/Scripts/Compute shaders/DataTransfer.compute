@@ -8,19 +8,20 @@ const uint ParticlesNum;
 const float Radius;
 const int ChunksNumAll;
 const int PTypesNum;
+const float3 ChunkGridOffset;
 const float3 Rot;
 
 RWStructuredBuffer<PData> PDataB;
 RWStructuredBuffer<PType> PTypes;
 
-RWStructuredBuffer<Sphere> Spheres;
+RWStructuredBuffer<float3> Points;
 
 int Extract_PType(int LastChunkKey_PType_POrder)
 {
     return ((uint)LastChunkKey_PType_POrder % (ChunksNumAll * PTypesNum)) / ChunksNumAll;
 }
 
-float3 ApplyTransformTriVertices(float3 rot, float3 a)
+float3 ApplyTransform(float3 rot, float3 a)
 {
     float cosX = cos(rot.x);
     float sinX = sin(rot.x);
@@ -40,6 +41,11 @@ float3 ApplyTransformTriVertices(float3 rot, float3 a)
     return mul(rotationMatrix, a);
 }
 
+void ApplyChunkGridOffset(inout float3 point2)
+{
+    point2 += ChunkGridOffset;
+}
+
 [numthreads(TN_DT,1,1)] // TEMP
 void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
 {
@@ -50,13 +56,8 @@ void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
     // PType pType = PTypes[Extract_PType(pData.lastChunkKey_PType_POrder)];
     int pTypeIndex = Extract_PType(pData.lastChunkKey_PType_POrder);
 
-    Sphere sphere;
-
-    float3 pos = float3(pData.pos.x, pData.pos.y * 1.5, pData.pos.z) * .1;
-    sphere.pos = ApplyTransformTriVertices(Rot, pos - float3(7.5, 10, 2.5)) + float3(15, 10, 2.5);
-    sphere.radius = Radius;
-    sphere.materialKey = 0;
-    sphere.materialKey = pTypeIndex == 1 || pTypeIndex == 2 ? 1 : 0;
-
-    Spheres[i] = sphere;
+    float3 point2 = float3(pData.pos.x, pData.pos.y, pData.pos.z) * .1;
+    point2 = ApplyTransform(Rot, point2 - float3(7.5, 10, 2.5)) + float3(15, 18, 10);
+    ApplyChunkGridOffset(point2);
+    Points[i] = point2;
 }

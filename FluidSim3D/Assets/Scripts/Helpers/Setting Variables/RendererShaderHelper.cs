@@ -8,6 +8,7 @@ public class RendererShaderHelper : MonoBehaviour
     public Renderer render;
     public TextureCreator texture;
     public TextureHelper th;
+    public ProgramManager manager;
 
 // --- SHADER BUFFERS ---
 
@@ -64,9 +65,9 @@ public class RendererShaderHelper : MonoBehaviour
 
     public void SetMSShaderBuffers (ComputeShader msShader)
     {
-        msShader.SetBuffer(0, "SpatialLookup", render.B_SpatialLookup);
-        msShader.SetBuffer(0, "StartIndices", render.B_StartIndices);
-        msShader.SetBuffer(0, "Spheres", render.B_Spheres);
+        msShader.SetBuffer(0, "SpatialLookup", manager.B_SpatialLookup);
+        msShader.SetBuffer(0, "StartIndices", manager.B_StartIndices);
+        msShader.SetBuffer(0, "Points", manager.B_Points);
         msShader.SetTexture(0, "GridDensities", render.T_GridDensities);
 
         msShader.SetBuffer(1, "SurfaceCellsAPPEND", render.AC_SurfaceCells);
@@ -159,8 +160,8 @@ public class RendererShaderHelper : MonoBehaviour
     {
         msShader.SetFloat("CellSizeMS", render.CellSizeMS);
 
-        msShader.SetVector("NumChunks", new Vector4(render.NumChunks.x, render.NumChunks.y, render.NumChunks.z, render.NumChunks.w));
-        msShader.SetFloat("CellSize", render.CellSize);
+        msShader.SetVector("NumChunks", new Vector4(manager.NumChunks.x, manager.NumChunks.y, manager.NumChunks.z, manager.NumChunks.w));
+        msShader.SetFloat("CellSizeSL", manager.CellSizeSL);
         msShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
     }
 
@@ -220,8 +221,11 @@ public class RendererShaderHelper : MonoBehaviour
         msShader.SetInt("DynamicNumTris", render.DynamicNumTris);
         msShader.SetInt("ReservedNumTris", render.ReservedNumTris);
 
-        pcShader.SetInt("NumTris", render.NumTris);
+        rmShader.SetInt("NumTriObjects", render.TriObjects.Length);
         rmShader.SetInt("NumTris", render.Tris.Length);
+        rmShader.SetInt("NumObjects", render.NumObjects);
+
+        pcShader.SetInt("NumTris", render.NumTris);
 
         ssShader.SetBuffer(1, "Tris", render.B_Tris);
         pcShader.SetBuffer(0, "Tris", render.B_Tris);

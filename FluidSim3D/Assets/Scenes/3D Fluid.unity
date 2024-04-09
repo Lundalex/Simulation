@@ -175,7 +175,7 @@ MonoBehaviour:
   NoiseCellSize: 128
   LerpFactor: 0.15
   inputB: 3
-  NoisePixelSize: 0.99
+  NoisePixelSize: 0.2
   RenderNoiseTextures: 1
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
@@ -304,40 +304,40 @@ MonoBehaviour:
   Resolution:
     x: 1920
     y: 1080
-  MaxStepCount: 200
+  MaxStepCount: 110
   RaysPerPixel: 1
   HitThreshold: 0.01
-  ScatterProbability: 1
+  ScatterProbability: 0.1
   DefocusStrength: 0
   focalPlaneFactor: 16
-  MaxStepSize: 0.19
-  TriMeshSafety: 0.2
+  MaxStepSize: 0.4
+  TriMeshSafety: 7
   FrameCount: 0
-  ChunksPerObject: 60
+  ChunksPerObject: 100
   MinWorldBounds:
     x: 0
     y: 0
     z: -25
   MaxWorldBounds:
     x: 25
-    y: 25
+    y: 30
     z: 20
-  CellSize: 0.1
-  CellSizeMS: 1
+  CellSize: 0.5
+  CellSizeMS: 0.5
   RenderTris: 1
   OBJ_Pos:
     x: 0
-    y: 3
-    z: -50
+    y: -5
+    z: -10
   OBJ_Rot:
     x: 0
     y: 0
     z: 0
   SpheresInput:
-  - x: -5
-    y: 1
-    z: 4
-    w: 5.92
+  - x: 4.5
+    y: 14.01
+    z: 13.83
+    w: 0.2
   - x: -18
     y: -1
     z: -18
@@ -369,12 +369,12 @@ MonoBehaviour:
   MatTypesInput1:
   - x: 0
     y: 1
-    z: 0
-    w: 0.8
+    z: 0.02
+    w: 0.5
   - x: 0
     y: 0
     z: 1
-    w: 0.8
+    w: 60
   MatTypesInput2:
   - x: 1
     y: 0
@@ -387,12 +387,12 @@ MonoBehaviour:
   rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
   pcShader: {fileID: 7200000, guid: 8b6e58497c2f7da409da1927d115d6dc, type: 3}
   ssShader: {fileID: 7200000, guid: 9af24f6caf8c76746826234ef1d4552b, type: 3}
-  msShader: {fileID: 7200000, guid: c8b0c0ed857fbca42a6211171c8e8dc1, type: 3}
+  mcShader: {fileID: 7200000, guid: c8b0c0ed857fbca42a6211171c8e8dc1, type: 3}
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
   shaderHelper: {fileID: 868168750}
   textureCreator: {fileID: 473926887}
-  manager: {fileID: 1164272048}
   sim: {fileID: 2125271849}
+  manager: {fileID: 1164272048}
   LoadOBJMesh: {fileID: -2432090755550338912, guid: cbfc12edff426ee4ca1fef259989a787, type: 3}
 --- !u!114 &868168750
 MonoBehaviour:
@@ -409,6 +409,7 @@ MonoBehaviour:
   render: {fileID: 868168749}
   texture: {fileID: 473926887}
   th: {fileID: 473926888}
+  manager: {fileID: 1164272048}
 --- !u!1 &1164272047
 GameObject:
   m_ObjectHideFlags: 0
@@ -419,6 +420,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1164272049}
   - component: {fileID: 1164272048}
+  - component: {fileID: 1164272050}
   m_Layer: 0
   m_Name: Program Manager
   m_TagString: Untagged
@@ -438,8 +440,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c64949e5b2df884bb8f7c5f3b908c48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  CellSizeSL: 0.5
   TimeStepsPerRenderFrame: 3
-  RotationSpeed: 0.2
+  RotationSpeed: 0
   PRadius: 0.05
   Rot:
     x: 0
@@ -449,7 +452,8 @@ MonoBehaviour:
   sim: {fileID: 2125271849}
   texture: {fileID: 473926887}
   dtShader: {fileID: 7200000, guid: d1021112b3303574191bcb6a5e085237, type: 3}
-  adda: 1
+  ssShader: {fileID: 7200000, guid: 5eeb9defe7f5a8e47892bd05717d0412, type: 3}
+  shaderHelper: {fileID: 1164272050}
 --- !u!4 &1164272049
 Transform:
   m_ObjectHideFlags: 0
@@ -465,6 +469,19 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1164272050
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1164272047}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79a202f4550445f4486f4da916d75e11, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  manager: {fileID: 1164272048}
 --- !u!1 &2125271846
 GameObject:
   m_ObjectHideFlags: 0

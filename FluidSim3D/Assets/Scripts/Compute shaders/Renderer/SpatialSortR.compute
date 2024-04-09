@@ -56,7 +56,7 @@ bool IsOutsideBoundsMin(float3 point2)
 {
     if (MinWorldBounds.x > point2.x
      || MinWorldBounds.y > point2.y
-     || MinWorldBounds.z > point2.z) { return true; }
+     || MinWorldBounds.z > point2.z) return true;
     return false;
 }
 
@@ -64,7 +64,7 @@ bool IsOutsideBoundsMax(float3 point2)
 {
     if (MinWorldBounds.x > point2.x
      || MinWorldBounds.y > point2.y
-     || MinWorldBounds.z > point2.z) { return true; }
+     || MinWorldBounds.z > point2.z) return true;
     return false;
 }
 
@@ -77,11 +77,8 @@ void ApplyChunkGridOffset(inout float3 point2)
 void CalcSphereChunkKeys (uint3 id : SV_DispatchThreadID)
 {
     int i = id.x;
-    if (i >= NumObjects_NextPow2 || i >= NumSpheres) { return; }
 
     Sphere sphere = Spheres[i];
-
-    if (IsOutsideBoundsMin(sphere.pos - sphere.radius) || IsOutsideBoundsMax(sphere.pos + sphere.radius)) { return; } // Sphere at least partially out of bounds
 
     // Ensure all coords are positive
     ApplyChunkGridOffset(sphere.pos);
@@ -107,7 +104,6 @@ void CalcSphereChunkKeys (uint3 id : SV_DispatchThreadID)
 void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
 {
     int i = id.x;
-    if (i >= NumObjects_NextPow2) { return; }
 
     Tri tri = Tris[i];
     float3 parentPos = TriObjects[tri.parentKey].pos;
@@ -116,7 +112,7 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
     float3 minBounds = min(min(tri.vA, tri.vB), tri.vC);
     float3 maxBounds = max(max(tri.vA, tri.vB), tri.vC);
 
-    if (IsOutsideBoundsMin(minBounds) || IsOutsideBoundsMax(maxBounds)) { return; } // Triangle at least partially out of bounds
+    if (IsOutsideBoundsMin(minBounds) || IsOutsideBoundsMax(maxBounds)) return; // Triangle at least partially out of bounds
 
     // Ensure all coords are positive
     ApplyChunkGridOffset(minBounds);
@@ -124,10 +120,10 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
 
     // Padding for occupied chunks insert
     // A high value will decrease the risk of visual artifacts BUT tanks frame rate
-    float boxPadding = 0.0;
+    float boxPadding = 0.3;
 
-    int3 minChunk = int3(floor((minBounds + parentPos - boxPadding) / CellSize)) - 2; // TEMP
-    int3 maxChunk = int3(floor((maxBounds + parentPos + boxPadding) / CellSize)) + 2; // TEMP
+    int3 minChunk = int3((minBounds + parentPos - boxPadding) / CellSize);
+    int3 maxChunk = int3(ceil((maxBounds + parentPos + boxPadding) / CellSize));
 
     for (int x = minChunk.x; x <= maxChunk.x; x++)
     {
@@ -149,7 +145,7 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
 void PopulateSpatialLookup (uint3 id : SV_DispatchThreadID)
 {
     int i = id.x;
-    if (i >= OC_len) { return; }
+    if (i >= OC_len) return;
 
     int2 chunkObjectPair = OccupiedChunksCONSUME.Consume();
     if (chunkObjectPair.x != 0 || chunkObjectPair.y != 0)
@@ -166,7 +162,7 @@ void PopulateSpatialLookup (uint3 id : SV_DispatchThreadID)
 void SortIteration (uint3 id : SV_DispatchThreadID)
 {
     int lowRef = id.x;
-    if (lowRef >= OC_len) { return; }
+    if (lowRef >= OC_len) return;
 
     int relBlock = (int)(2 * lowRef / (uint)BlockLen);
     int relPos = lowRef % (0.5 * BlockLen);
@@ -193,7 +189,7 @@ void SortIteration (uint3 id : SV_DispatchThreadID)
 void PopulateStartIndices (uint3 id : SV_DispatchThreadID)
 {
     int i = id.x;
-    if (i >= OC_len) { return; }
+    if (i >= OC_len) return;
     
     int chunkKey = SpatialLookup[i].y;
     int LastChunkKey = NumChunksAll;

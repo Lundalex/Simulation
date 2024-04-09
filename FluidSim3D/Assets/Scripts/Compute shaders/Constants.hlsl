@@ -31,6 +31,7 @@ static const int TN_TC = 8; // TextureComposition
 // --- Data Transfer ---
 
 static const int TN_DT = 512;
+static const int TN_SS_DT = 512;
 
 
 // --- Other Fixed Constants ---
