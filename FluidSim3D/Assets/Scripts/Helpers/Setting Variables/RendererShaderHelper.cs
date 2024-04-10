@@ -247,6 +247,7 @@ public class RendererShaderHelper : MonoBehaviour
         pcShader.SetInt("NumSpheres", render.NumSpheres);
 
         rmShader.SetBuffer(0, "Spheres", render.B_Spheres);
-        ssShader.SetBuffer(1, "Spheres", render.B_Spheres);
+        ssShader.SetBuffer(0, "Spheres", render.B_Spheres);
+        dtShader.SetBuffer(1, "Spheres", render.B_Spheres);
     }
 }

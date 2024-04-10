@@ -4,11 +4,11 @@ using Unity.Mathematics;
 // Import utils from Resources.cs
 using Resources;
 using System;
-using System.Drawing;
 
 public class ProgramManager : MonoBehaviour
 {
     public float CellSizeSL;
+    public float3 Offset2;
     public int TimeStepsPerRenderFrame;
     public float RotationSpeed;
     public float ParticleSpheresRadius;
@@ -64,6 +64,8 @@ public class ProgramManager : MonoBehaviour
         dtShader.SetFloat("PTypesNum", sim.PTypes.Length);
         dtShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
 
+        dtShader.SetVector("Offset2", new Vector3(Offset2.x, Offset2.y, Offset2.z)); // TEMP
+
         dtShader.SetInt("ReservedNumSpheres", render.ReservedNumSpheres);
         dtShader.SetInt("NumSpheres", sim.ParticlesNum + render.ReservedNumSpheres);
 
@@ -111,13 +113,6 @@ public class ProgramManager : MonoBehaviour
     {
         render.UpdateSpheres(sim.ParticlesNum);
         ComputeHelper.DispatchKernel(dtShader, "TransferPointsData", NumPoints, dtShaderThreadSize);
-
-        // TEMP! ! ! ! ! ! !
-        float3[] test = new float3[NumPoints];
-        B_Points.GetData(test);
-        render.Spheres = new Sphere[sim.ParticlesNum+1];
-        render.B_Spheres.GetData(render.Spheres);
-        int a = 0;
     }
 
     void OnDestroy()

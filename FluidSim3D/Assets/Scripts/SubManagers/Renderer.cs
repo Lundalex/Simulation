@@ -173,7 +173,7 @@ public class Renderer : MonoBehaviour
 
         UpdateSpheres(30000, overrideCheck);
 
-        UpdateTris(8000, overrideCheck); // IF THE FLUID MESH GLITCHES: INCREASE THIS NUMBER
+        UpdateTris(20000, overrideCheck); // IF THE FLUID MESH GLITCHES: INCREASE THIS NUMBER
 
         float3 ChunkGridDiff = MaxWorldBounds - MinWorldBounds;
         NumChunks = new(Mathf.CeilToInt(ChunkGridDiff.x / CellSize),

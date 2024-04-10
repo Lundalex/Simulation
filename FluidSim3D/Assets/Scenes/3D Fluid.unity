@@ -308,7 +308,7 @@ MonoBehaviour:
   MaxStepCount: 110
   RaysPerPixel: 1
   HitThreshold: 0.01
-  ScatterProbability: 0.1
+  ScatterProbability: 0.25
   DefocusStrength: 0
   focalPlaneFactor: 16
   MaxStepSize: 0.4
@@ -414,9 +414,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   CellSizeSL: 0.5
+  Offset2:
+    x: -0.36
+    y: -4.73
+    z: -41.5
   TimeStepsPerRenderFrame: 3
   RotationSpeed: 0
-  ParticleSpheresRadius: 0
+  ParticleSpheresRadius: 0.2
   Rot:
     x: 0
     y: 0

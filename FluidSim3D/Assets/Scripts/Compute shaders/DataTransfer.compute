@@ -12,6 +12,8 @@ const uint PTypesNum;
 const float3 ChunkGridOffset;
 const float3 Rot;
 
+const float3 Offset2;
+
 const uint ReservedNumSpheres;
 const uint NumSpheres;
 
@@ -77,7 +79,7 @@ void TransferPointsData (uint3 id : SV_DispatchThreadID)
     float3 point2 = Points[id.x];
 
     Sphere sphere;
-    sphere.pos = point2;
+    sphere.pos = point2 + Offset2;
     sphere.radius = Radius;
     sphere.materialKey = 0;
 
