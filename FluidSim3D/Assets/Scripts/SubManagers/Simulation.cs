@@ -4,6 +4,7 @@ using System;
 
 // Import utils from Resources.cs
 using Resources;
+using UnityEditor;
 public class Simulation : MonoBehaviour
 {
     [Header("Simulation settings")]
@@ -46,14 +47,16 @@ public class Simulation : MonoBehaviour
     [Header("References")]
     public SimulationShaderHelper shaderHelper;
     public ComputeShader pSimShader;
-    public ComputeShader sortShader;
+    public ComputeShader ssShader;
+    public ComputeShader ipsShader;
 
     // Non-inpector-accessible variables
 
     // ThreadSize settings for compute shaders
     [NonSerialized] public const int renderShaderThreadSize = 32; // /32, AxA thread groups
     [NonSerialized] public const int pSimShaderThreadSize = 256; // /1024
-    [NonSerialized] public const int sortShaderThreadSize = 512; // /1024
+    [NonSerialized] public const int ssShaderThreadSize = 512; // /1024
+    [NonSerialized] public const int ipsShaderThreadSize = 512; // /1024
 
     // Bitonic mergesort
     public ComputeBuffer SpatialLookupBuffer;
@@ -100,10 +103,12 @@ public class Simulation : MonoBehaviour
 
         InitializeBuffers();
         shaderHelper.SetPSimShaderBuffers(pSimShader);
-        shaderHelper.SetSortShaderBuffers(sortShader);
+        shaderHelper.SetSSShaderBuffers(ssShader);
+        shaderHelper.SetIPSShaderBuffer(ipsShader);
 
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
-        shaderHelper.UpdateSortShaderVariables(sortShader);
+        shaderHelper.UpdateSSShaderVariables(ssShader);
+        shaderHelper.UpdateIPSShaderVariables(ipsShader);
 
         ProgramStarted = true;
     }
@@ -114,8 +119,8 @@ public class Simulation : MonoBehaviour
         {
             UpdateShaderTimeStep();
 
-            GPUSortChunkLookUp();
-            GPUSortSpringLookUp();
+            RunSSShader();
+            RunIPSShader();
 
             for (int subTimeStepCount = 0; subTimeStepCount < SubTimeStepsNum; subTimeStepCount++)
             {
@@ -143,7 +148,8 @@ public class Simulation : MonoBehaviour
         PTypesBuffer.SetData(PTypes);
 
         shaderHelper.UpdatePSimShaderVariables(pSimShader);
-        shaderHelper.UpdateSortShaderVariables(sortShader);
+        shaderHelper.UpdateSSShaderVariables(ssShader);
+        shaderHelper.UpdateIPSShaderVariables(ipsShader);
     }
     
     public void UpdateShaderTimeStep()
@@ -161,7 +167,7 @@ public class Simulation : MonoBehaviour
         pSimShader.SetBool("RMousePressed", mousePressed.y);
 
         FrameBufferCycle = !FrameBufferCycle;
-        sortShader.SetBool("FrameBufferCycle", FrameBufferCycle);
+        ssShader.SetBool("FrameBufferCycle", FrameBufferCycle);
         pSimShader.SetBool("FrameBufferCycle", FrameBufferCycle);
     }
 
@@ -414,58 +420,32 @@ public class Simulation : MonoBehaviour
         ComputeHelper.CreateStructuredBuffer<Spring>(ref ParticleSpringsCombinedBuffer, (int)(ParticlesNum * SpringCapacitySafety));
     }
 
-    void GPUSortChunkLookUp()
+    void RunSSShader()
     {
-        int threadGroupsNum = Utils.GetThreadGroupsNum(ParticlesNum_NextPow2, sortShaderThreadSize);
-        int threadGroupsNumHalfCeil = (int)Math.Ceiling(threadGroupsNum * 0.5f);
-
-        ComputeHelper.DispatchKernel (sortShader, "CalculateChunkKeys", threadGroupsNum);
-
-        int len = ParticlesNum_NextPow2;
-
-        int basebBlockLen = 2;
-        while (basebBlockLen != 2*len) // basebBlockLen == len is the last outer iteration
-        {
-            int blockLen = basebBlockLen;
-            while (blockLen != 1) // blockLen == 2 is the last inner iteration
-            {
-                bool BrownPinkSort = blockLen == basebBlockLen;
-
-                sortShader.SetInt("BlockLen", blockLen);
-                sortShader.SetBool("BrownPinkSort", BrownPinkSort);
-
-                ComputeHelper.DispatchKernel (sortShader, "SortIteration", threadGroupsNumHalfCeil);
-
-                blockLen /= 2;
-            }
-            basebBlockLen *= 2;
-        }
-
-        ComputeHelper.DispatchKernel (sortShader, "PopulateStartIndices", threadGroupsNum);
+        ComputeHelper.SpatialSort(ssShader, ParticlesNum, ssShaderThreadSize);
     }
 
-    void GPUSortSpringLookUp()
+    void RunIPSShader()
     {
-        // Spring buffer kernels
-        int threadGroupsNum = Utils.GetThreadGroupsNum(ChunksNumAll, sortShaderThreadSize);
+        int threadGroupsNum = Utils.GetThreadGroupsNum(ChunksNumAll, ssShaderThreadSize);
 
-        ComputeHelper.DispatchKernel (sortShader, "PopulateChunkSizes", threadGroupsNum);
-        ComputeHelper.DispatchKernel (sortShader, "PopulateSpringCapacities", threadGroupsNum);
-        ComputeHelper.DispatchKernel (sortShader, "CopySpringCapacities", threadGroupsNum);
+        ComputeHelper.DispatchKernel (ipsShader, "PopulateChunkSizes", threadGroupsNum);
+        ComputeHelper.DispatchKernel (ipsShader, "PopulateSpringCapacities", threadGroupsNum);
+        ComputeHelper.DispatchKernel (ipsShader, "CopySpringCapacities", threadGroupsNum);
 
-        // Calculate prefix sums (SpringStartIndices)
+        // Calculate prefix sums
         bool StepBufferCycle = false;
         for (int offset = 1; offset < ChunksNumAll; offset *= 2)
         {
             StepBufferCycle = !StepBufferCycle;
 
-            sortShader.SetBool("StepBufferCycle", StepBufferCycle);
-            sortShader.SetInt("Offset", offset);
+            ipsShader.SetBool("StepBufferCycle", StepBufferCycle);
+            ipsShader.SetInt("Offset", offset);
 
-            ComputeHelper.DispatchKernel (sortShader, "ParallelPrefixSumScan", threadGroupsNum);
+            ComputeHelper.DispatchKernel (ipsShader, "ParallelPrefixSumScan", threadGroupsNum);
         }
 
-        if (StepBufferCycle == true) { ComputeHelper.DispatchKernel (sortShader, "CopySpringStartIndicesBuffer", threadGroupsNum); } // copy to result buffer if necessary
+        if (StepBufferCycle == true) { ComputeHelper.DispatchKernel (ipsShader, "CopySpringStartIndicesBuffer", threadGroupsNum); } // copy to result buffer if necessary
     }
 
     void RunPSimShader()

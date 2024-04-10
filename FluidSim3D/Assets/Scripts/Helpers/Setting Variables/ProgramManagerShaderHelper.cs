@@ -33,10 +33,4 @@ public class ProgramManagerShaderHelper : MonoBehaviour
         // World settings
         ssShader.SetFloat("CellSize", manager.CellSizeSL);
     }
-
-    public void UpdateSortIterationVariables (ComputeShader ssShader, int blockLen, bool brownPinkSort)
-    {
-        ssShader.SetBool("BrownPinkSort", brownPinkSort);
-        ssShader.SetInt("BlockLen", blockLen);
-    }
 }

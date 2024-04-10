@@ -8,6 +8,7 @@ using Resources;
 public class Renderer : MonoBehaviour
 {
     [Header("Render settings")]
+    public FluidRenderStyle fluidRenderStyle;
     public float fieldOfView = 70.0f;
     public int2 Resolution = new(1920, 1080);
 
@@ -28,9 +29,9 @@ public class Renderer : MonoBehaviour
     public float3 MaxWorldBounds = new(40.0f, 40.0f, 40.0f);
     public float CellSize = 1.0f;
     public float CellSizeMS = 1.0f;
+    public float ThresholdMS = 0.5f;
 
     [Header("Scene objects")]
-    public bool RenderTris = true;
     public float3 OBJ_Pos;
     public float3 OBJ_Rot;
     public float4[] SpheresInput; // xyz: pos; w: radii
@@ -80,11 +81,11 @@ public class Renderer : MonoBehaviour
     public ComputeBuffer CB_A;
     private bool ProgramStarted = false;
     private bool SettingsChanged = true;
-    private Vector3 lastCameraPosition;
-    private Quaternion lastCameraRotation;
 
     // Constants calculated at start
     [NonSerialized] public int NumObjects;
+    [NonSerialized] public int ReservedNumSpheres;
+    [NonSerialized] public int DynamicNumSpheres;
     [NonSerialized] public int NumSpheres;
     [NonSerialized] public int NumTriObjects;
     [NonSerialized] public int ReservedNumTris;
@@ -96,16 +97,15 @@ public class Renderer : MonoBehaviour
     [NonSerialized] public int NumChunksAll;
     [NonSerialized] public float3 ChunkGridOffset;
 
-    public void ScriptSetup ()
+    public void ScriptSetup()
     {
         Camera.main.cullingMask = 0;
         FrameCount = 0;
-        lastCameraPosition = transform.position;
 
         SetSceneObjects();
         LoadOBJ();
 
-        SetConstants();
+        SetConstants(true);
 
         InitBuffers();
 
@@ -167,12 +167,13 @@ public class Renderer : MonoBehaviour
         SetTriObjectData();
     }
 
-    void SetConstants()
+    void SetConstants(bool overrideCheck = false)
     {
-        NumSpheres = Spheres.Length;
         NumTriObjects = TriObjects.Length;
 
-        UpdateNumTris(8000, true); // IF THE FLUID MESH GLITCHES: INCREASE THIS NUMBER
+        UpdateSpheres(30000, overrideCheck);
+
+        UpdateTris(8000, overrideCheck); // IF THE FLUID MESH GLITCHES: INCREASE THIS NUMBER
 
         float3 ChunkGridDiff = MaxWorldBounds - MinWorldBounds;
         NumChunks = new(Mathf.CeilToInt(ChunkGridDiff.x / CellSize),
@@ -192,7 +193,7 @@ public class Renderer : MonoBehaviour
         );
     }
 
-    void UpdateNumTris(int newDynamicNumTris, bool overrideCheck = false)
+    void UpdateTris(int newDynamicNumTris, bool overrideCheck = false)
     {
         if (newDynamicNumTris > DynamicNumTris || overrideCheck)
         {
@@ -205,9 +206,28 @@ public class Renderer : MonoBehaviour
             ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, NumTris);
             B_Tris.SetData(Tris);
             Tris = new Tri[NumTris];
-            Debug.Log(NumTris);
+            Debug.Log("New NumTris: " + NumTris);
 
             shaderHelper.UpdateTriSettings(mcShader, pcShader, rmShader, ssShader);
+        }
+    }
+
+    public void UpdateSpheres(int newDynamicNumSpheres, bool overrideCheck = false)
+    {
+        if (newDynamicNumSpheres > DynamicNumSpheres || overrideCheck)
+        {
+            DynamicNumSpheres = newDynamicNumSpheres;
+            NumSpheres = ReservedNumSpheres + newDynamicNumSpheres;
+            NumObjects = NumSpheres + NumTris;
+            NumObjects_NextPow2 = Func.NextPow2(NumObjects);
+
+            B_Spheres.GetData(Spheres);
+            ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, NumSpheres);
+            B_Spheres.SetData(Spheres);
+            Spheres = new Sphere[NumSpheres];
+            Debug.Log("New NumSpheres: " + NumSpheres);
+
+            shaderHelper.UpdateSphereSettings(manager.dtShader, pcShader, rmShader, ssShader);
         }
     }
 
@@ -223,8 +243,6 @@ public class Renderer : MonoBehaviour
         TextureHelper.CreateTexture(ref T_SurfaceCells, NumCellsMS - 1, 1);
         ComputeHelper.CreateAppendBuffer<int3>(ref AC_SurfaceCells, Func.NextPow2((int)(NumCellsMS.x*NumCellsMS.y*NumCellsMS.z * TriMeshSafety)));
         ComputeHelper.CreateAppendBuffer<Tri2>(ref AC_FluidTriMesh, Func.NextPow2((int)(NumCellsMS.x*NumCellsMS.y*NumCellsMS.z * TriMeshSafety * 3)));
-
-        rmShader.SetTexture(1, "NoiseB", T_SurfaceCells);
 
         TextureHelper.CreateTexture(ref renderTexture, Resolution, 3);
     }
@@ -268,39 +286,31 @@ public class Renderer : MonoBehaviour
         shaderHelper.UpdateNGVariables(ngShader);
     }
 
-    void LateUpdate()
-    {
-        if (transform.position != lastCameraPosition || transform.rotation != lastCameraRotation)
-        {
-            FrameCount = 0;
-
-            SetTriObjectData();
-            SetSceneObjects();
-            shaderHelper.SetRMSettings(rmShader);
-
-            lastCameraPosition = transform.position;
-            lastCameraRotation = transform.rotation;
-        }
-    }
-
     private void OnValidate()
     {
         if (ProgramStarted)
         {
             FrameCount = 0;
 
-            SetTriObjectData();
-            SetSceneObjects();
-            shaderHelper.SetRMSettings(rmShader);
+            SetConstants();
+            UpdateSettings();
 
             SettingsChanged = true;
         }
     }
 
+    void UpdateSettings()
+    {
+        SetTriObjectData();
+        SetSceneObjects();
+        shaderHelper.SetRMSettings(rmShader);
+    }
+
     void SetSceneObjects()
     {
         // Set Spheres data
-        Spheres = new Sphere[1];
+        ReservedNumSpheres = SpheresInput.Length;
+        Spheres = new Sphere[SpheresInput.Length];
         for (int i = 0; i < Spheres.Length; i++)
         {
             Spheres[i] = new Sphere
@@ -332,38 +342,13 @@ public class Renderer : MonoBehaviour
         // Fill OccupiedChunks
         AC_OccupiedChunks.SetCounterValue(0);
         ComputeHelper.DispatchKernel(ssShader, "CalcSphereChunkKeys", NumSpheres, ssShaderThreadSize);
-        if (RenderTris) { ComputeHelper.DispatchKernel(ssShader, "CalcTriChunkKeys", NumTris, ssShaderThreadSize); } 
+        ComputeHelper.DispatchKernel(ssShader, "CalcTriChunkKeys", NumTris, ssShaderThreadSize);
 
         // Get OccupiedChunks length
-        // Expensive since it requires data to be sent from the GPU to the CPU!
-        int OC_len = ComputeHelper.GetAppendBufferCount(AC_OccupiedChunks, CB_A);
-        Func.NextPow2(ref OC_len); // NextPow2() since bitonic merge sort requires pow2 array length
+        // GetAppendBufferCount() is expensive since it requires data to be sent from the GPU to the CPU!
+        int occupiedChunksLength = ComputeHelper.GetAppendBufferCount(AC_OccupiedChunks, CB_A);
 
-        ssShader.SetInt("OC_len", OC_len);
-
-        // Copy OccupiedChunks -> SpatialLookup
-        ComputeHelper.DispatchKernel(ssShader, "PopulateSpatialLookup", OC_len, ssShaderThreadSize);
-
-        // Sort SpatialLookup
-        int basebBlockLen = 2;
-        while (basebBlockLen != 2*OC_len) // basebBlockLen == len is the last outer iteration
-        {
-            int blockLen = basebBlockLen;
-            while (blockLen != 1) // blockLen == 2 is the last inner iteration
-            {
-                bool brownPinkSort = blockLen == basebBlockLen;
-
-                shaderHelper.UpdateSortIterationVariables(ssShader, blockLen, brownPinkSort);
-
-                ComputeHelper.DispatchKernel(ssShader, "SortIteration", OC_len / 2, ssShaderThreadSize);
-
-                blockLen /= 2;
-            }
-            basebBlockLen *= 2;
-        }
-
-        // Set StartIndices
-        ComputeHelper.DispatchKernel(ssShader, "PopulateStartIndices", OC_len, ssShaderThreadSize);
+        ComputeHelper.SpatialSort(ssShader, occupiedChunksLength, ssShaderThreadSize);
     }
 
     public void RunPCShader()
@@ -372,9 +357,9 @@ public class Renderer : MonoBehaviour
         if (SettingsChanged) { SettingsChanged = false; ComputeHelper.DispatchKernel(pcShader, "SetLastRotations", NumTriObjects, pcShaderThreadSize); }
     }
 
-    public void RunMSShader()
+    public void RunMCShader()
     {
-        ComputeHelper.DispatchKernel(mcShader, "CalcGridDensities", NumCellsMS.xyz, msShaderThreadSize); // NOT WORKING CONSISTANTLY Also datatransfer only adding to "Spheres", while MS shader samples from spataillookup
+        ComputeHelper.DispatchKernel(mcShader, "CalcGridDensities", NumCellsMS.xyz, msShaderThreadSize);
         AC_SurfaceCells.SetCounterValue(0);
         ComputeHelper.DispatchKernel(mcShader, "FindSurface", NumCellsMS.xyz, msShaderThreadSize);
 
@@ -385,7 +370,7 @@ public class Renderer : MonoBehaviour
 
         int FTM_len = ComputeHelper.GetAppendBufferCount(AC_FluidTriMesh, CB_A);
 
-        UpdateNumTris(FTM_len);
+        UpdateTris(FTM_len);
 
         ComputeHelper.DispatchKernel(mcShader, "DeleteFluidMesh", Mathf.Max(DynamicNumTris, 1), msShaderThreadSize2);
         ComputeHelper.DispatchKernel(mcShader, "TransferFluidMesh", Mathf.Max(FTM_len, 1), msShaderThreadSize2);
@@ -400,7 +385,7 @@ public class Renderer : MonoBehaviour
 
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
     {
-        RunMSShader(); // MarchingCubes
+        if (fluidRenderStyle == FluidRenderStyle.IsoSurfaceMesh) RunMCShader(); // MarchingCubes
         RunPCShader(); // PreCalc
         RunSSShader(); // SpatialSort
         RunRMShader(); // RayMarcher

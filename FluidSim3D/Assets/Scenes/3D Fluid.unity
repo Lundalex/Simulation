@@ -300,6 +300,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4931dbbf0e8d469468045a57e5273257, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  fluidRenderStyle: 1
   fieldOfView: 62
   Resolution:
     x: 1920
@@ -324,7 +325,7 @@ MonoBehaviour:
     z: 20
   CellSize: 0.5
   CellSizeMS: 0.5
-  RenderTris: 1
+  ThresholdMS: 0.5
   OBJ_Pos:
     x: 0
     y: -5
@@ -337,35 +338,7 @@ MonoBehaviour:
   - x: 4.5
     y: 14.01
     z: 13.83
-    w: 0.2
-  - x: -18
-    y: -1
-    z: -18
-    w: 1
-  - x: 0.5
-    y: -10.9
-    z: -2
-    w: 5.1
-  - x: 2.2
-    y: -5
-    z: -4.7
-    w: 0.7
-  - x: 0.5
-    y: -4.5
-    z: -4.5
-    w: 0.7
-  - x: -1
-    y: -8.3
-    z: -29
-    w: 0.7
-  - x: -2
-    y: -5.4
-    z: -3
-    w: 1
-  - x: -0.7
-    y: -2.8
-    z: -3.5
-    w: 0.7
+    w: 0.5
   MatTypesInput1:
   - x: 0
     y: 1
@@ -443,7 +416,7 @@ MonoBehaviour:
   CellSizeSL: 0.5
   TimeStepsPerRenderFrame: 3
   RotationSpeed: 0
-  PRadius: 0.05
+  ParticleSpheresRadius: 0
   Rot:
     x: 0
     y: 0
@@ -541,7 +514,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c4e01cbd809e59f4e9d22e12742b644e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ParticlesNum: 65536
+  ParticlesNum: 60000
   MaxInfluenceRadius: 2
   TargetDensity: 1.6
   PressureMultiplier: 1500
@@ -572,7 +545,8 @@ MonoBehaviour:
   InteractionTemperaturePower: 0
   shaderHelper: {fileID: 2125271848}
   pSimShader: {fileID: 7200000, guid: 4c6ba7b69baa30b428d3e81f801e27b8, type: 3}
-  sortShader: {fileID: 7200000, guid: 3e99023e342e7f542b3045d213b12c03, type: 3}
+  ssShader: {fileID: 7200000, guid: 3e99023e342e7f542b3045d213b12c03, type: 3}
+  ipsShader: {fileID: 7200000, guid: 4f1bd62c1c0e8804e89857d2d305d0db, type: 3}
 --- !u!33 &2125271850
 MeshFilter:
   m_ObjectHideFlags: 0

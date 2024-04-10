@@ -140,8 +140,8 @@ public class RendererShaderHelper : MonoBehaviour
         // Num constants
         ssShader.SetVector("NumChunks", new Vector4(render.NumChunks.x, render.NumChunks.y, render.NumChunks.z, render.NumChunks.w));
         ssShader.SetInt("NumChunksAll", render.NumChunksAll);
-        ssShader.SetInt("NumObjects", render.NumObjects);
         ssShader.SetInt("NumSpheres", render.NumSpheres);
+        ssShader.SetInt("NumObjects", render.NumObjects);
         ssShader.SetInt("NumObjects_NextPow2", Func.NextPow2(render.NumObjects));
 
         // World settings
@@ -159,16 +159,11 @@ public class RendererShaderHelper : MonoBehaviour
     public void SetMSShaderSettings (ComputeShader msShader)
     {
         msShader.SetFloat("CellSizeMS", render.CellSizeMS);
+        msShader.SetFloat("Threshold", render.ThresholdMS);
 
         msShader.SetVector("NumChunks", new Vector4(manager.NumChunks.x, manager.NumChunks.y, manager.NumChunks.z, manager.NumChunks.w));
         msShader.SetFloat("CellSizeSL", manager.CellSizeSL);
         msShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
-    }
-
-    public void UpdateSortIterationVariables (ComputeShader ssShader, int blockLen, bool brownPinkSort)
-    {
-        ssShader.SetBool("BrownPinkSort", brownPinkSort);
-        ssShader.SetInt("BlockLen", blockLen);
     }
 
     public void UpdateRMVariables (ComputeShader rmShader)
@@ -222,15 +217,36 @@ public class RendererShaderHelper : MonoBehaviour
         msShader.SetInt("ReservedNumTris", render.ReservedNumTris);
 
         rmShader.SetInt("NumTriObjects", render.TriObjects.Length);
-        rmShader.SetInt("NumTris", render.Tris.Length);
+        rmShader.SetInt("NumTris", render.NumTris);
         rmShader.SetInt("NumObjects", render.NumObjects);
 
         pcShader.SetInt("NumTris", render.NumTris);
+
+        ssShader.SetInt("NumObjects", render.NumObjects);
+        ssShader.SetInt("NumObjects_NextPow2", Func.NextPow2(render.NumObjects));
 
         ssShader.SetBuffer(1, "Tris", render.B_Tris);
         pcShader.SetBuffer(0, "Tris", render.B_Tris);
         rmShader.SetBuffer(0, "Tris", render.B_Tris);
         msShader.SetBuffer(4, "Tris", render.B_Tris);
         msShader.SetBuffer(3, "Tris", render.B_Tris);
+    }
+
+    public void UpdateSphereSettings (ComputeShader dtShader, ComputeShader pcShader, ComputeShader rmShader, ComputeShader ssShader)
+    {
+        dtShader.SetInt("ReservedNumSpheres", render.ReservedNumSpheres);
+        dtShader.SetInt("NumSpheres", render.NumSpheres);
+
+        rmShader.SetInt("NumSpheres", render.NumSpheres);
+        rmShader.SetInt("NumObjects", render.NumObjects);
+
+        ssShader.SetInt("NumSpheres", render.NumSpheres);
+        ssShader.SetInt("NumObjects", render.NumObjects);
+        ssShader.SetInt("NumObjects_NextPow2", Func.NextPow2(render.NumObjects));
+
+        pcShader.SetInt("NumSpheres", render.NumSpheres);
+
+        rmShader.SetBuffer(0, "Spheres", render.B_Spheres);
+        ssShader.SetBuffer(1, "Spheres", render.B_Spheres);
     }
 }

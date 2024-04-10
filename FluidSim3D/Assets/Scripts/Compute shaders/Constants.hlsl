@@ -9,7 +9,8 @@ static const float PI = 3.1415926;
 
 static const int TN_PS = 256; // ParticleSim
 static const int TN_RB = 32; // RigidbodySim
-static const int TN_SS_S = 512; // Sort
+static const int TN_SS_S = 512; // SpatialSort
+static const int TN_IPS = 512; // InterParticleSprings
 
 static const float SmoothViscosityLaplacianFactor = 45 / PI;
 

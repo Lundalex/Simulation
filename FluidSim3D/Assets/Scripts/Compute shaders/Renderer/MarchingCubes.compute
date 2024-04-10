@@ -9,6 +9,7 @@
 
 // Marching squares settings
 const float CellSizeMS;
+const float Threshold;
 
 // Render world settings
 const uint4 NumChunks;
@@ -45,12 +46,12 @@ int GetChunkKey(int3 chunk)
     return chunk.x + chunk.y * NumChunks.x + chunk.z * NumChunks.w;
 }
 
-NearInfo GetNear(float3 pos)
+NearInfo GetNearDstCheap(float3 pos)
 {
     int3 chunk = int3(pos / CellSizeSL);
     int chunkKey = GetChunkKey(chunk);
     int startIndex = StartIndices[chunkKey];
-
+ 
     NearInfo nearInfo;
     nearInfo.materialKey = -1;
     float nearDstSqr = FLT_MAX;
@@ -59,25 +60,26 @@ NearInfo GetNear(float3 pos)
     {
         int pointIndex = SpatialLookup[index].x;
         float3 point2 = Points[pointIndex];
-
+ 
         float3 dst = pos - point2;
         float dstSqr = dot2(dst);
         nearDstSqr = min(nearDstSqr, dstSqr);
-
+ 
         // -- Increment index each iteration - Chunk particle search algorithm --
-
+ 
         index += 1;
     }
-
-    nearInfo.dst = sqrt(nearDstSqr);
-
+ 
+    nearInfo.val = sqrt(nearDstSqr);
+ 
     return nearInfo;
 }
-
-NearInfo GetNearExtended(float3 pos, int radius)
+ 
+NearInfo GetNearDst(float3 pos, int radius)
 {
     int3 chunk = int3(pos / CellSizeSL);
-
+ 
+    float radiusSqr = sqr(radius);
     NearInfo nearInfo;
     nearInfo.materialKey = -1;
     float nearDstSqr = FLT_MAX;
@@ -88,32 +90,81 @@ NearInfo GetNearExtended(float3 pos, int radius)
             for (int z = -radius; z <= radius; z++)
             {
                 int3 curChunk = chunk + int3(x, y, z);
-
+ 
                 if (!ValidChunk(curChunk)) continue;
-
+ 
                 int chunkKey = GetChunkKey(curChunk);
                 int startIndex = StartIndices[chunkKey];
-
+ 
                 int index = startIndex;
-                while (index != -1 && chunkKey == SpatialLookup[index].y && index - startIndex < 5)
+                while (index != -1 && chunkKey == SpatialLookup[index].y)
                 {
                     int pointIndex = SpatialLookup[index].x;
                     float3 point2 = Points[pointIndex];
-            
+           
                     float3 dst = pos - point2;
                     float dstSqr = dot2(dst);
+
                     nearDstSqr = min(nearDstSqr, dstSqr);
-            
+           
                     // -- Increment index each iteration - Chunk particle search algorithm --
-            
-                    index += 1;
+           
+                    index++;
                 }
             }
         }
     }
-
-    nearInfo.dst = sqrt(nearDstSqr);
-
+ 
+    nearInfo.val = max(1 - sqrt(nearDstSqr)*1.3, 0);
+ 
+    return nearInfo;
+}
+ 
+NearInfo GetNearDensity(float3 pos, int radius)
+{
+    int3 chunk = int3(pos / CellSizeSL);
+ 
+    float radiusSqr = sqr(radius);
+    NearInfo nearInfo;
+    nearInfo.materialKey = -1;
+    float totDensity = 0.0;
+    for (int x = -radius; x <= radius; x++)
+    {
+        for (int y = -radius; y <= radius; y++)
+        {
+            for (int z = -radius; z <= radius; z++)
+            {
+                int3 curChunk = chunk + int3(x, y, z);
+ 
+                if (!ValidChunk(curChunk)) continue;
+ 
+                int chunkKey = GetChunkKey(curChunk);
+                int startIndex = StartIndices[chunkKey];
+ 
+                int index = startIndex;
+                while (index != -1 && chunkKey == SpatialLookup[index].y)
+                {
+                    int pointIndex = SpatialLookup[index].x;
+                    float3 point2 = Points[pointIndex];
+           
+                    float3 dst = pos - point2;
+                    float dstSqr = dot2(dst);
+ 
+                    if (dstSqr > radiusSqr) { index++; continue; }
+ 
+                    float absDst = sqrt(dstSqr);
+                    totDensity += MSDensityKernel(absDst, radius);
+           
+                    // -- Increment index each iteration - Chunk particle search algorithm --
+           
+                    index ++;
+                }
+            }
+        }
+    }
+ 
+    nearInfo.val = min(totDensity*0.01, 1);
+ 
     return nearInfo;
 }
 
@@ -124,9 +175,9 @@ void CalcGridDensities (uint3 msCell : SV_DispatchThreadID)
     if (!ValidChunk(msCell)) return;
 
     float3 pos = msCell * CellSizeMS + ChunkGridOffset;
-    NearInfo nearInfo = GetNearExtended(pos, 2);
+    NearInfo nearInfo = GetNearDst(pos, 1);
 
-    GridDensities[msCell] = max(1 - nearInfo.dst*1.3, 0);
+    GridDensities[msCell] = nearInfo.val;
 }
 
 [numthreads(TN_MS,TN_MS,TN_MS)]
@@ -134,16 +185,14 @@ void FindSurface (uint3 baseCell : SV_DispatchThreadID)
 {
     if (!ValidChunk(baseCell+1)) return;
 
-    float threshold = 0.5;
-
-    bool c0_0_0 = GridDensities[baseCell] < threshold;
-    bool c1_0_0 = GridDensities[baseCell + uint3(1,0,0)] < threshold;
-    bool c0_1_0 = GridDensities[baseCell + uint3(1,0,1)] < threshold;
-    bool c1_1_0 = GridDensities[baseCell + uint3(0,0,1)] < threshold;
-    bool c0_0_1 = GridDensities[baseCell + uint3(0,1,0)] < threshold;
-    bool c1_0_1 = GridDensities[baseCell + uint3(1,1,0)] < threshold;
-    bool c0_1_1 = GridDensities[baseCell + uint3(1,1,1)] < threshold;
-    bool c1_1_1 = GridDensities[baseCell + uint3(0,1,1)] < threshold;
+    bool c0_0_0 = GridDensities[baseCell] < Threshold;
+    bool c1_0_0 = GridDensities[baseCell + uint3(1,0,0)] < Threshold;
+    bool c0_1_0 = GridDensities[baseCell + uint3(1,0,1)] < Threshold;
+    bool c1_1_0 = GridDensities[baseCell + uint3(0,0,1)] < Threshold;
+    bool c0_0_1 = GridDensities[baseCell + uint3(0,1,0)] < Threshold;
+    bool c1_0_1 = GridDensities[baseCell + uint3(1,1,0)] < Threshold;
+    bool c0_1_1 = GridDensities[baseCell + uint3(1,1,1)] < Threshold;
+    bool c1_1_1 = GridDensities[baseCell + uint3(0,1,1)] < Threshold;
 
     if ((c0_0_0 || c1_0_0 || c0_1_0 || c1_1_0 || c0_0_1 || c1_0_1 || c0_1_1 || c1_1_1)
         && !(c0_0_0 && c1_0_0 && c0_1_0 && c1_1_0 && c0_0_1 && c1_0_1 && c0_1_1 && c1_1_1))
@@ -152,9 +201,9 @@ void FindSurface (uint3 baseCell : SV_DispatchThreadID)
     }
 }
 
-float3 interpolateVerts(float d1, float d2, float3 v1, float3 v2, float threshold)
+float3 interpolateVerts(float d1, float d2, float3 v1, float3 v2, float Threshold)
 {
-    float t = saturate((threshold - d1) / (d2 - d1));
+    float t = saturate((Threshold - d1) / (d2 - d1));
     
     return lerp(v1, v2, t);
 }
@@ -191,16 +240,15 @@ void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
     // There are 256 possible values
     // A value of 0 means cube is entirely inside surface; 255 entirely outside.
     // The value is used to look up the edge table, which indicates which edges of the cube are cut by the isosurface.
-    float threshold = 0.5;
     int cubeIndex = 0;
-    if (densities[0] > threshold) cubeIndex |= 1;
-    if (densities[1] > threshold) cubeIndex |= 2;
-    if (densities[2] > threshold) cubeIndex |= 4;
-    if (densities[3] > threshold) cubeIndex |= 8;
-    if (densities[4] > threshold) cubeIndex |= 16;
-    if (densities[5] > threshold) cubeIndex |= 32;
-    if (densities[6] > threshold) cubeIndex |= 64;
-    if (densities[7] > threshold) cubeIndex |= 128;
+    if (densities[0] > Threshold) cubeIndex |= 1;
+    if (densities[1] > Threshold) cubeIndex |= 2;
+    if (densities[2] > Threshold) cubeIndex |= 4;
+    if (densities[3] > Threshold) cubeIndex |= 8;
+    if (densities[4] > Threshold) cubeIndex |= 16;
+    if (densities[5] > Threshold) cubeIndex |= 32;
+    if (densities[6] > Threshold) cubeIndex |= 64;
+    if (densities[7] > Threshold) cubeIndex |= 128;
 
     // Create triangles for current cube configuration
     for (int i = 0; triangulation[cubeIndex][i] != -1; i +=3)
@@ -217,9 +265,9 @@ void GenerateFluidMesh (uint3 id : SV_DispatchThreadID)
         int b2 = cornerIndexBFromEdge[triangulation[cubeIndex][i+2]];
 
         Tri2 tri;
-        tri.vA = interpolateVerts(densities[a0], densities[b0], localPositions[a0], localPositions[b0], threshold);
-        tri.vB = interpolateVerts(densities[a1], densities[b1], localPositions[a1], localPositions[b1], threshold);
-        tri.vC = interpolateVerts(densities[a2], densities[b2], localPositions[a2], localPositions[b2], threshold);
+        tri.vA = interpolateVerts(densities[a0], densities[b0], localPositions[a0], localPositions[b0], Threshold);
+        tri.vB = interpolateVerts(densities[a1], densities[b1], localPositions[a1], localPositions[b1], Threshold);
+        tri.vC = interpolateVerts(densities[a2], densities[b2], localPositions[a2], localPositions[b2], Threshold);
 
         // Transform to render world space
         tri.vA = tri.vA * CellSizeMS;

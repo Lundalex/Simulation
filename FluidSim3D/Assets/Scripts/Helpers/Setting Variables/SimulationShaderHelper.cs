@@ -2,7 +2,7 @@ using UnityEngine;
 public class SimulationShaderHelper : MonoBehaviour
 {
     public Simulation sim;
-    public void SetPSimShaderBuffers(ComputeShader pSimShader)
+    public void SetPSimShaderBuffers (ComputeShader pSimShader)
     {
         // Kernel PreCalculations
         pSimShader.SetBuffer(0, "PDataB", sim.PDataBuffer);
@@ -43,46 +43,49 @@ public class SimulationShaderHelper : MonoBehaviour
         pSimShader.SetBuffer(5, "SpringCapacities", sim.SpringCapacitiesBuffer);
     }
 
-    public void SetSortShaderBuffers(ComputeShader sortShader)
+    public void SetSSShaderBuffers (ComputeShader ssShader)
     {
-        sortShader.SetBuffer(0, "SpatialLookup", sim.SpatialLookupBuffer);
+        ssShader.SetBuffer(0, "SpatialLookup", sim.SpatialLookupBuffer);
 
-        sortShader.SetBuffer(0, "PDataB", sim.PDataBuffer);
-        sortShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
+        ssShader.SetBuffer(0, "PDataB", sim.PDataBuffer);
+        ssShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
 
-        sortShader.SetBuffer(1, "SpatialLookup", sim.SpatialLookupBuffer);
+        ssShader.SetBuffer(1, "SpatialLookup", sim.SpatialLookupBuffer);
 
-        sortShader.SetBuffer(1, "PDataB", sim.PDataBuffer);
-        sortShader.SetBuffer(1, "PTypes", sim.PTypesBuffer);
+        ssShader.SetBuffer(1, "PDataB", sim.PDataBuffer);
+        ssShader.SetBuffer(1, "PTypes", sim.PTypesBuffer);
 
-        sortShader.SetBuffer(2, "StartIndices", sim.StartIndicesBuffer);
+        ssShader.SetBuffer(2, "StartIndices", sim.StartIndicesBuffer);
 
-        sortShader.SetBuffer(3, "SpatialLookup", sim.SpatialLookupBuffer);
-        sortShader.SetBuffer(3, "StartIndices", sim.StartIndicesBuffer);
-        sortShader.SetBuffer(3, "PTypes", sim.PTypesBuffer);
-        sortShader.SetBuffer(3, "PDataB", sim.PDataBuffer);
-
-        sortShader.SetBuffer(4, "SpatialLookup", sim.SpatialLookupBuffer);
-        sortShader.SetBuffer(4, "StartIndices", sim.StartIndicesBuffer);
-        sortShader.SetBuffer(4, "SpringCapacities", sim.SpringCapacitiesBuffer);
-
-        sortShader.SetBuffer(5, "SpringCapacities", sim.SpringCapacitiesBuffer);
-
-        sortShader.SetBuffer(6, "SpringCapacities", sim.SpringCapacitiesBuffer);
-        sortShader.SetBuffer(6, "SpringStartIndices_dbA", sim.SpringStartIndicesBuffer_dbA);
-        sortShader.SetBuffer(6, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
-        sortShader.SetBuffer(6, "SpringStartIndices_dbC", sim.SpringStartIndicesBuffer_dbC);
-
-        sortShader.SetBuffer(7, "SpringStartIndices_dbA", sim.SpringStartIndicesBuffer_dbA);
-        sortShader.SetBuffer(7, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
-        sortShader.SetBuffer(7, "SpringStartIndices_dbC", sim.SpringStartIndicesBuffer_dbC);
-
-        sortShader.SetBuffer(8, "SpringStartIndices_dbA", sim.SpringStartIndicesBuffer_dbA);
-        sortShader.SetBuffer(8, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
-        sortShader.SetBuffer(8, "SpringStartIndices_dbC", sim.SpringStartIndicesBuffer_dbC);
+        ssShader.SetBuffer(3, "SpatialLookup", sim.SpatialLookupBuffer);
+        ssShader.SetBuffer(3, "StartIndices", sim.StartIndicesBuffer);
+        ssShader.SetBuffer(3, "PTypes", sim.PTypesBuffer);
+        ssShader.SetBuffer(3, "PDataB", sim.PDataBuffer);
     }
 
-    public void UpdatePSimShaderVariables(ComputeShader pSimShader)
+    public void SetIPSShaderBuffer (ComputeShader ipsShader)
+    {
+        ipsShader.SetBuffer(0, "SpatialLookup", sim.SpatialLookupBuffer);
+        ipsShader.SetBuffer(0, "StartIndices", sim.StartIndicesBuffer);
+        ipsShader.SetBuffer(0, "SpringCapacities", sim.SpringCapacitiesBuffer);
+
+        ipsShader.SetBuffer(1, "SpringCapacities", sim.SpringCapacitiesBuffer);
+
+        ipsShader.SetBuffer(2, "SpringCapacities", sim.SpringCapacitiesBuffer);
+        ipsShader.SetBuffer(2, "SpringStartIndices_dbA", sim.SpringStartIndicesBuffer_dbA);
+        ipsShader.SetBuffer(2, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
+        ipsShader.SetBuffer(2, "SpringStartIndices_dbC", sim.SpringStartIndicesBuffer_dbC);
+
+        ipsShader.SetBuffer(3, "SpringStartIndices_dbA", sim.SpringStartIndicesBuffer_dbA);
+        ipsShader.SetBuffer(3, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
+        ipsShader.SetBuffer(3, "SpringStartIndices_dbC", sim.SpringStartIndicesBuffer_dbC);
+
+        ipsShader.SetBuffer(4, "SpringStartIndices_dbA", sim.SpringStartIndicesBuffer_dbA);
+        ipsShader.SetBuffer(4, "SpringStartIndices_dbB", sim.SpringStartIndicesBuffer_dbB);
+        ipsShader.SetBuffer(4, "SpringStartIndices_dbC", sim.SpringStartIndicesBuffer_dbC);
+    }
+
+    public void UpdatePSimShaderVariables (ComputeShader pSimShader)
     {
         pSimShader.SetInt("MaxInfluenceRadiusSqr", sim.MaxInfluenceRadiusSqr);
         pSimShader.SetFloat("InvMaxInfluenceRadius", sim.InvMaxInfluenceRadius);
@@ -102,13 +105,19 @@ public class SimulationShaderHelper : MonoBehaviour
         pSimShader.SetFloat("InteractionTemperaturePower", sim.InteractionTemperaturePower);
     }
 
-    public void UpdateSortShaderVariables(ComputeShader sortShader)
+    public void UpdateSSShaderVariables (ComputeShader ssShader)
     {
-        sortShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
-        sortShader.SetVector("ChunksNum", new Vector4(sim.ChunksNum.x, sim.ChunksNum.y, sim.ChunksNum.z, sim.ChunksNum.w));
-        sortShader.SetInt("ChunksNumAll", sim.ChunksNumAll);
-        sortShader.SetInt("ChunkNumNextPow2", sim.ChunksNumAllNextPow2);
-        sortShader.SetInt("ParticlesNum", sim.ParticlesNum);
-        sortShader.SetInt("ParticlesNum_NextPow2", sim.ParticlesNum_NextPow2);
+        ssShader.SetInt("MaxInfluenceRadius", sim.MaxInfluenceRadius);
+        ssShader.SetVector("ChunksNum", new Vector4(sim.ChunksNum.x, sim.ChunksNum.y, sim.ChunksNum.z, sim.ChunksNum.w));
+        ssShader.SetInt("ChunksNumAll", sim.ChunksNumAll);
+        ssShader.SetInt("ChunkNumNextPow2", sim.ChunksNumAllNextPow2);
+        ssShader.SetInt("ParticlesNum", sim.ParticlesNum);
+    }
+
+    public void UpdateIPSShaderVariables (ComputeShader ipsShader)
+    {
+        ipsShader.SetVector("ChunksNum", new Vector4(sim.ChunksNum.x, sim.ChunksNum.y, sim.ChunksNum.z, sim.ChunksNum.w));
+        ipsShader.SetInt("ChunksNumAll", sim.ChunksNumAll);
+        ipsShader.SetInt("ParticlesNum", sim.ParticlesNum);
     }
 }

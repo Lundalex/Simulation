@@ -56,7 +56,7 @@ struct Material2
 };
 struct NearInfo
 {
-    float dst;
+    float val;
     int materialKey;
     bool foundObject;
 };

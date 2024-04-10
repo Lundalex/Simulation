@@ -1,4 +1,5 @@
 #pragma kernel TransferParticlePositionData // 0
+#pragma kernel TransferPointsData // 1
 
 #include "Renderer/RendererDataTypes.hlsl"
 #include "Simulation/SimulationDataTypes.hlsl"
@@ -6,15 +7,20 @@
 
 const uint ParticlesNum;
 const float Radius;
-const int ChunksNumAll;
-const int PTypesNum;
+const uint ChunksNumAll;
+const uint PTypesNum;
 const float3 ChunkGridOffset;
 const float3 Rot;
+
+const uint ReservedNumSpheres;
+const uint NumSpheres;
 
 RWStructuredBuffer<PData> PDataB;
 RWStructuredBuffer<PType> PTypes;
 
 RWStructuredBuffer<float3> Points;
+
+RWStructuredBuffer<Sphere> Spheres;
 
 int Extract_PType(int LastChunkKey_PType_POrder)
 {
@@ -46,18 +52,34 @@ void ApplyChunkGridOffset(inout float3 point2)
     point2 += ChunkGridOffset;
 }
 
-[numthreads(TN_DT,1,1)] // TEMP
+[numthreads(TN_DT,1,1)]
 void TransferParticlePositionData (uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;
-    if (i >= ParticlesNum) { return; }
+    if (i >= ParticlesNum) return;
 
     PData pData = PDataB[i];
     // PType pType = PTypes[Extract_PType(pData.lastChunkKey_PType_POrder)];
-    int pTypeIndex = Extract_PType(pData.lastChunkKey_PType_POrder);
+    uint pTypeIndex = Extract_PType(pData.lastChunkKey_PType_POrder);
 
     float3 point2 = float3(pData.pos.x, pData.pos.y, pData.pos.z) * .1;
     point2 = ApplyTransform(Rot, point2 - float3(7.5, 10, 2.5)) + float3(15, 18, 10);
     ApplyChunkGridOffset(point2);
     Points[i] = point2;
+}
+
+[numthreads(TN_DT,1,1)]
+void TransferPointsData (uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x + ReservedNumSpheres;
+    if (i >= NumSpheres) return;
+
+    float3 point2 = Points[id.x];
+
+    Sphere sphere;
+    sphere.pos = point2;
+    sphere.radius = Radius;
+    sphere.materialKey = 0;
+
+    Spheres[i] = sphere;
 }

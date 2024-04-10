@@ -1,51 +1,28 @@
-// Neighboor spatial lookup
-#pragma kernel CalculateChunkKeys // 0
-#pragma kernel SortIteration // 1
-#pragma kernel PrepStartIndices // 2
-#pragma kernel PopulateStartIndices // 3
-
-// Inter-particle springs
-#pragma kernel PopulateChunkSizes // 4
-#pragma kernel PopulateSpringCapacities // 5
-#pragma kernel CopySpringCapacities // 6
-#pragma kernel ParallelPrefixSumScan // 7
-#pragma kernel CopySpringStartIndicesBuffer // 8
+#pragma kernel PopulateChunkSizes // 0
+#pragma kernel PopulateSpringCapacities // 1
+#pragma kernel CopySpringCapacities // 2
+#pragma kernel ParallelPrefixSumScan // 3
+#pragma kernel CopySpringStartIndicesBuffer // 4
 
 #include "SimulationResources.hlsl"
 #include "CompositionResources.hlsl"
 
-const uint MaxInfluenceRadius;
 const uint4 ChunksNum;
 const uint ChunksNumAll;
-const uint ChunksNumAllNextPow2;
 const uint ParticlesNum;
-const uint ParticlesNum_NextPow2;
 
-// Per-iteration-set constants
-const bool BrownPinkSort; // True -> BrownSort, False -> PinkSort
-const uint SpatialLookupLog2Length;
-const uint BlockLen;
-
+// Per-frame-set constants
 const bool FrameBufferCycle;
 const bool StepBufferCycle;
 const uint Offset;
-
-RWStructuredBuffer<int2> SpatialLookup; // [ParticlesNum](particleIndex, ChunkKey)
-RWStructuredBuffer<int> StartIndices;
 
 RWStructuredBuffer<int2> SpringCapacities; // [](baseChunkCapacity, neighboorChunksCapacity)
 RWStructuredBuffer<int> SpringStartIndices_dbA; // Result A
 RWStructuredBuffer<int> SpringStartIndices_dbB; // Result B
 RWStructuredBuffer<int> SpringStartIndices_dbC; // Support
 
-RWStructuredBuffer<PData> PDataB;
-
-void SwapInt2(inout int2 a, inout int2 b)
-{
-    int2 temp = a;
-    a = b;
-    b = temp;
-}
+RWStructuredBuffer<int2> SpatialLookup; // [SortLength(ParticlesNum)](particleIndex, ChunkKey)
+RWStructuredBuffer<int> StartIndices;
 
 bool ValidChunk(int3 chunk)
 {
@@ -54,11 +31,9 @@ bool ValidChunk(int3 chunk)
            chunk.z >= 0 && chunk.z < (int)ChunksNum.z;
 }
 
-int GetChunkKeyFromPosition(float3 pos)
+int GetChunkKey(int3 chunk)
 {
-    int3 chunk = (int3)(pos / MaxInfluenceRadius);
-    int chunkKey = chunk.y * ChunksNum.x + chunk.x + chunk.z * ChunksNum.w;
-    return chunkKey;
+    return chunk.x + chunk.y * ChunksNum.x + chunk.z * ChunksNum.w;
 }
 
 int3 DecomposeChunkKey(int chunkKey)
@@ -69,11 +44,6 @@ int3 DecomposeChunkKey(int chunkKey)
     int3 chunk = int3(chunkX, chunkY, chunkZ);
 
     return chunk;
-}
-
-int GetChunkKey(int3 chunk)
-{
-    return chunk.x + chunk.y * ChunksNum.x + chunk.z * ChunksNum.w;
 }
 
 int GetNeighboorParticlesNum(int chunkKey)
@@ -100,75 +70,7 @@ int GetNeighboorParticlesNum(int chunkKey)
     return neighboorParticlesNum * SpringCapacities[chunkKey].x;
 }
 
-[numthreads(TN_SS_S,1,1)]
-void CalculateChunkKeys (uint3 id : SV_DispatchThreadID)
-{
-    uint i = id.x;
-    if (i >= ParticlesNum_NextPow2) return;
-    if (i < ParticlesNum)
-    {
-        uint chunkKey = GetChunkKeyFromPosition(PDataB[i].pos);
-        SpatialLookup[i] = int2(i, chunkKey);
-    }
-    else
-    {
-        SpatialLookup[i] = int2(ParticlesNum, ChunksNumAll);
-    }
-}
-
-[numthreads(TN_SS_S,1,1)]
-void SortIteration (uint3 id : SV_DispatchThreadID)
-{
-    uint lowRef = id.x;
-    if (lowRef >= ParticlesNum) return;
-
-    uint relBlock = (int)(2 * lowRef / (uint)BlockLen);
-    uint relPos = lowRef % (0.5 * BlockLen);
-
-    uint lowIndex = relBlock * BlockLen + relPos;
-
-    uint highIndex = BrownPinkSort
-    ? relBlock * BlockLen + BlockLen - 1 - relPos
-    :relBlock * BlockLen + relPos + (int)(BlockLen * 0.5);
-
-    int2 lowValue = SpatialLookup[lowIndex];
-    int2 highValue = SpatialLookup[highIndex];
-
-    if (lowValue.y > highValue.y || (lowValue.y == highValue.y && lowValue.x > highValue.x))
-    {
-        SwapInt2(SpatialLookup[highIndex], SpatialLookup[lowIndex]);
-    }
-}
-
-[numthreads(TN_SS_S,1,1)]
-void PrepStartIndices (uint3 id : SV_DispatchThreadID)
-{
-    uint i = id.x;
-
-    // StartIndices[i] = ParticlesNum;
-}
-
-[numthreads(TN_SS_S,1,1)]
-void PopulateStartIndices (uint3 id : SV_DispatchThreadID)
-{
-    uint i = id.x;
-    if (i >= ParticlesNum) return;
-    
-    uint chunkKey = SpatialLookup[i].y;
-    uint LastChunkKey = ParticlesNum;
-
-    if (i != 0)
-    {
-        LastChunkKey = SpatialLookup[i-1].y;
-    }
-
-    if (chunkKey != LastChunkKey)
-    {
-        StartIndices[chunkKey] = i;
-    }
-}
-
-[numthreads(TN_SS_S,1,1)]
+[numthreads(TN_IPS,1,1)]
 void PopulateChunkSizes (uint3 id : SV_DispatchThreadID)
 {
     int chunkKey = id.x - 1;
@@ -187,9 +89,7 @@ void PopulateChunkSizes (uint3 id : SV_DispatchThreadID)
     SpringCapacities[chunkKey].x = neighboorCount;
 }
 
-// -- Inter-particle springs --
-
-[numthreads(TN_SS_S,1,1)]
+[numthreads(TN_IPS,1,1)]
 void PopulateSpringCapacities (uint3 id : SV_DispatchThreadID)
 {
     uint chunkKey = id.x;
@@ -199,7 +99,7 @@ void PopulateSpringCapacities (uint3 id : SV_DispatchThreadID)
     SpringCapacities[chunkKey].y = SpringCapacity;
 }
 
-[numthreads(TN_SS_S,1,1)]
+[numthreads(TN_IPS,1,1)]
 void CopySpringCapacities (uint3 id : SV_DispatchThreadID)
 {
     uint chunkKey = id.x;
@@ -216,7 +116,7 @@ void CopySpringCapacities (uint3 id : SV_DispatchThreadID)
     }
 }
 
-[numthreads(TN_SS_S,1,1)]
+[numthreads(TN_IPS,1,1)]
 void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;
@@ -271,7 +171,7 @@ void ParallelPrefixSumScan (uint3 id : SV_DispatchThreadID)
     }
 }
 
-[numthreads(TN_SS_S,1,1)]
+[numthreads(TN_IPS,1,1)]
 void CopySpringStartIndicesBuffer (uint3 id : SV_DispatchThreadID)
 {
     uint i = id.x;

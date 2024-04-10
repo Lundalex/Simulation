@@ -2,14 +2,14 @@
 #pragma kernel SortIteration // 1
 #pragma kernel PopulateStartIndices // 2
 
-#include "Renderer/RendererDataTypes.hlsl"
-#include "Constants.hlsl"
+#include "../Renderer/RendererDataTypes.hlsl"
+#include "../Constants.hlsl"
 
 // Num constants
 const int4 NumChunks; // x, y, z, x*y
-const int NumChunksAll;
-const int NumPoints;
-const int NumPoints_NextPow2;
+const uint NumChunksAll;
+const uint SortLength;
+const uint SortLengthNextPow2;
 
 // World settings
 const float CellSize;
@@ -17,7 +17,7 @@ const float3 ChunkGridOffset;
 
 // Per-iteration-set constants
 const bool BrownPinkSort; // True -> BrownSort, False -> PinkSort
-const int BlockLen;
+const uint BlockLen;
 
 RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](pointIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
@@ -44,13 +44,13 @@ uint GetChunkKey(uint3 chunk)
 [numthreads(TN_SS_DT,1,1)]
 void PopulateSpatialLookup (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
-    if (i >= NumPoints_NextPow2 || i >= NumPoints) return;
+    uint i = id.x;
+    if (i >= SortLengthNextPow2) return;
 
     float3 point2 = Points[i];
 
     int3 chunk = GetChunkFromPos(point2);
-    int chunkKey = GetChunkKey(chunk);
+    uint chunkKey = GetChunkKey(chunk);
     int2 chunkPointPair = int2(i, chunkKey);
 
     if (chunkPointPair.x != 0 || chunkPointPair.y != 0)
@@ -66,17 +66,17 @@ void PopulateSpatialLookup (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_DT,1,1)]
 void SortIteration (uint3 id : SV_DispatchThreadID)
 {
-    int lowRef = id.x;
-    if (lowRef >= NumPoints_NextPow2) return;
+    uint lowRef = id.x;
+    if (lowRef >= SortLength) return;
 
-    int relBlock = (int)(2 * lowRef / (uint)BlockLen);
-    int relPos = lowRef % (0.5 * BlockLen);
+    uint relBlock = (uint)(2 * lowRef / (uint)BlockLen);
+    uint relPos = lowRef % (0.5 * BlockLen);
 
-    int lowIndex = relBlock * BlockLen + relPos;
+    uint lowIndex = relBlock * BlockLen + relPos;
 
-    int highIndex = BrownPinkSort
+    uint highIndex = BrownPinkSort
     ? relBlock * BlockLen + BlockLen - 1 - relPos
-    : relBlock * BlockLen + relPos + (int)(BlockLen * 0.5);
+    : relBlock * BlockLen + relPos + (uint)(BlockLen * 0.5);
 
     int2 lowValue = SpatialLookup[lowIndex];
     int2 highValue = SpatialLookup[highIndex];
@@ -93,7 +93,7 @@ void SortIteration (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_DT,1,1)]
 void PopulateStartIndices (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
+    uint i = id.x;
     if (i >= NumChunksAll) return;
     
     int chunkKey = SpatialLookup[i].y;

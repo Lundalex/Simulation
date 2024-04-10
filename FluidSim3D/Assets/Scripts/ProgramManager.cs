@@ -4,13 +4,14 @@ using Unity.Mathematics;
 // Import utils from Resources.cs
 using Resources;
 using System;
+using System.Drawing;
 
 public class ProgramManager : MonoBehaviour
 {
     public float CellSizeSL;
     public int TimeStepsPerRenderFrame;
     public float RotationSpeed;
-    public float PRadius;
+    public float ParticleSpheresRadius;
     public float3 Rot;
     public Renderer render;
     public Simulation sim;
@@ -51,20 +52,28 @@ public class ProgramManager : MonoBehaviour
             dtShader.SetBuffer(0, "PTypes", sim.PTypesBuffer);
             dtShader.SetBuffer(0, "Points", B_Points);
 
+            dtShader.SetBuffer(1, "Points", B_Points);
+            dtShader.SetBuffer(1, "Spheres", render.B_Spheres);
+
             ProgramStarted = !ProgramStarted;
         }
 
         dtShader.SetFloat("ParticlesNum", sim.ParticlesNum);
-        dtShader.SetFloat("Radius", PRadius);
+        dtShader.SetFloat("Radius", ParticleSpheresRadius);
         dtShader.SetFloat("ChunksNumAll", sim.ChunksNumAll);
         dtShader.SetFloat("PTypesNum", sim.PTypes.Length);
         dtShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
+
+        dtShader.SetInt("ReservedNumSpheres", render.ReservedNumSpheres);
+        dtShader.SetInt("NumSpheres", sim.ParticlesNum + render.ReservedNumSpheres);
 
         Rot.y += RotationSpeed * Time.deltaTime;
         dtShader.SetVector("Rot", new Vector3(Rot.x, Rot.y, Rot.z));
 
         TransferParticleData();
-        RunSSShader();
+
+        if (render.fluidRenderStyle == FluidRenderStyle.IsoSurfaceMesh) RunSSShader();
+        else if (render.fluidRenderStyle == FluidRenderStyle.ParticleSpheres) TransferParticleSpheres();
 
         render.UpdateRendererData();
     }
@@ -94,31 +103,21 @@ public class ProgramManager : MonoBehaviour
 
     public void RunSSShader()
     {
-        int len = NumPoints_NextPow2;
+        // Sort points (for processing by MS shader)
+        ComputeHelper.SpatialSort(ssShader, NumPoints, ssShaderThreadSize);
+    }
 
-        // Copy OccupiedChunks -> SpatialLookup
-        ComputeHelper.DispatchKernel(ssShader, "PopulateSpatialLookup", len, ssShaderThreadSize);
+    public void TransferParticleSpheres()
+    {
+        render.UpdateSpheres(sim.ParticlesNum);
+        ComputeHelper.DispatchKernel(dtShader, "TransferPointsData", NumPoints, dtShaderThreadSize);
 
-        // Sort SpatialLookup
-        int basebBlockLen = 2;
-        while (basebBlockLen != 2*len) // basebBlockLen == len is the last outer iteration
-        {
-            int blockLen = basebBlockLen;
-            while (blockLen != 1) // blockLen == 2 is the last inner iteration
-            {
-                bool brownPinkSort = blockLen == basebBlockLen;
-
-                shaderHelper.UpdateSortIterationVariables(ssShader, blockLen, brownPinkSort);
-
-                ComputeHelper.DispatchKernel(ssShader, "SortIteration", len / 2, ssShaderThreadSize);
-
-                blockLen /= 2;
-            }
-            basebBlockLen *= 2;
-        }
-
-        // Set StartIndices
-        ComputeHelper.DispatchKernel(ssShader, "PopulateStartIndices", len, ssShaderThreadSize);
+        // TEMP! ! ! ! ! ! !
+        float3[] test = new float3[NumPoints];
+        B_Points.GetData(test);
+        render.Spheres = new Sphere[sim.ParticlesNum+1];
+        render.B_Spheres.GetData(render.Spheres);
+        int a = 0;
     }
 
     void OnDestroy()

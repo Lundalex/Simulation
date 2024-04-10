@@ -150,9 +150,46 @@ public static class ComputeHelper
         int count = countArr[0];
         return count;
 	}
+#endregion
 
+#region Buffer Sorting
 
-// --- RELEASE BUFFERS / TEXTURES ---
+    /// <summary>Sorts a given spatial lookup / start indices pair of buffers</summary>
+    /// <remarks>Sorts the spatial lookup in ascending order, prioritising the x-component over the y-component. Sorts the buffers associated with the given sorting shader</remarks>
+    public static void SpatialSort(ComputeShader sortShader, int sortLength, int threadSize)
+    {
+        sortShader.SetInt("SortLength", sortLength);
+        int sortLengthNextPow2 = Func.NextPow2(sortLength);
+        sortShader.SetInt("SortLengthNextPow2", Func.NextPow2(sortLength));
+
+        int threadGroupsNum = Utils.GetThreadGroupsNum(sortLengthNextPow2, threadSize);
+
+        DispatchKernel(sortShader, "PopulateSpatialLookup", threadGroupsNum);
+
+        // Primary sorting loop
+        int basebBlockLen = 2;
+        while (basebBlockLen != 2*sortLengthNextPow2) // basebBlockLen == sortLengthNextPow2 is the last outer iteration
+        {
+            int blockLen = basebBlockLen;
+            while (blockLen != 1) // blockLen == 2 is the last inner iteration
+            {
+                bool brownPinkSort = blockLen == basebBlockLen;
+
+                sortShader.SetBool("BrownPinkSort", brownPinkSort);
+                sortShader.SetInt("BlockLen", blockLen);
+
+                DispatchKernel(sortShader, "SortIteration", Mathf.CeilToInt(threadGroupsNum * 0.5f));
+
+                blockLen /= 2;
+            }
+            basebBlockLen *= 2;
+        }
+
+        DispatchKernel(sortShader, "PopulateStartIndices", threadGroupsNum);
+    }
+#endregion
+
+#region Release Buffers / Textures
 
     /// <summary>Releases a single compute buffer</summary>
 	public static void Release(ComputeBuffer buffer)

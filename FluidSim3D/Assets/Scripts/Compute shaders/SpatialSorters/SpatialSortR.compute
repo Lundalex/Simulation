@@ -4,7 +4,7 @@
 #pragma kernel SortIteration // 3
 #pragma kernel PopulateStartIndices // 4
 
-#include "RendererResources.hlsl"
+#include "../Renderer/RendererResources.hlsl"
 
 // Num constants
 const int4 NumChunks; // x, y, z, x*y
@@ -23,7 +23,8 @@ const float3 ChunkGridOffset;
 const bool BrownPinkSort; // True -> BrownSort, False -> PinkSort
 const int BlockLen;
 
-const int OC_len;
+const uint SortLength;
+const uint SortLengthNextPow2;
 
 AppendStructuredBuffer<int2> OccupiedChunksAPPEND;
 ConsumeStructuredBuffer<int2> OccupiedChunksCONSUME;
@@ -144,8 +145,8 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_R,1,1)]
 void PopulateSpatialLookup (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
-    if (i >= OC_len) return;
+    uint i = id.x;
+    if (i >= SortLengthNextPow2) return;
 
     int2 chunkObjectPair = OccupiedChunksCONSUME.Consume();
     if (chunkObjectPair.x != 0 || chunkObjectPair.y != 0)
@@ -161,17 +162,17 @@ void PopulateSpatialLookup (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_R,1,1)]
 void SortIteration (uint3 id : SV_DispatchThreadID)
 {
-    int lowRef = id.x;
-    if (lowRef >= OC_len) return;
+    uint lowRef = id.x;
+    if (lowRef >= SortLength) return;
 
-    int relBlock = (int)(2 * lowRef / (uint)BlockLen);
-    int relPos = lowRef % (0.5 * BlockLen);
+    uint relBlock = (uint)(2 * lowRef / (uint)BlockLen);
+    uint relPos = lowRef % (0.5 * BlockLen);
 
-    int lowIndex = relBlock * BlockLen + relPos;
+    uint lowIndex = relBlock * BlockLen + relPos;
 
-    int highIndex = BrownPinkSort
+    uint highIndex = BrownPinkSort
     ? relBlock * BlockLen + BlockLen - 1 - relPos
-    : relBlock * BlockLen + relPos + (int)(BlockLen * 0.5);
+    : relBlock * BlockLen + relPos + (uint)(BlockLen * 0.5);
 
     int2 lowValue = SpatialLookup[lowIndex];
     int2 highValue = SpatialLookup[highIndex];
@@ -188,8 +189,8 @@ void SortIteration (uint3 id : SV_DispatchThreadID)
 [numthreads(TN_SS_R,1,1)]
 void PopulateStartIndices (uint3 id : SV_DispatchThreadID)
 {
-    int i = id.x;
-    if (i >= OC_len) return;
+    uint i = id.x;
+    if (i >= SortLength) return;
     
     int chunkKey = SpatialLookup[i].y;
     int LastChunkKey = NumChunksAll;

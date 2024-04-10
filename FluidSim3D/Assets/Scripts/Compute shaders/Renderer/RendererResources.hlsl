@@ -1,6 +1,16 @@
 #include "../Constants.hlsl"
 #include "RendererDataTypes.hlsl"
 
+float MSDensityKernel(float dst, float radius)
+{
+	if (dst < radius)
+	{
+        float dstR = dst / radius;
+        return sqrt(1 - dstR);
+	}
+	return 0;
+}
+
 void ApplyTransformTriVertices(float3 rot, inout float3 a, inout float3 b, inout float3 c)
 {
     float cosX = cos(rot.x);

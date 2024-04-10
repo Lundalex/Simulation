@@ -76,5 +76,6 @@ public class TextureCreator : MonoBehaviour
         textureHelper.GaussianBlur(ref voronoi0, NoiseResolution, 3, 5);
 
         rmShader.SetTexture(1, "NoiseA", voronoi0); // Final texture stored in voronoi0
+        rmShader.SetTexture(1, "NoiseB", voronoi0); // Final texture stored in voronoi0
     }
 }
