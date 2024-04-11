@@ -15,3 +15,7 @@ https://iquilezles.org/articles/distfunctions/
 
 Compute kernels: https://www.geogebra.org/m/dquhjvqc (not updated)
 
+
+KNOWN ISSUES:
+
+- Simulation inter-particle springs not working

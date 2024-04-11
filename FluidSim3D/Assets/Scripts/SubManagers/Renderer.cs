@@ -51,7 +51,7 @@ public class Renderer : MonoBehaviour
     public TextureCreator textureCreator;
     public Simulation sim;
     public ProgramManager manager;
-    public Mesh LoadOBJMesh;
+    public FileImporter fileImporter;
 
     // Shader settings
     private const int rmShaderThreadSize = 8; // /32
@@ -79,6 +79,7 @@ public class Renderer : MonoBehaviour
     public ComputeBuffer AC_SurfaceCells;
     public ComputeBuffer AC_FluidTriMesh;
     public ComputeBuffer CB_A;
+    private FluidRenderStyle lastFluidRenderStyle;
     private bool ProgramStarted = false;
     private bool SettingsChanged = true;
 
@@ -99,16 +100,287 @@ public class Renderer : MonoBehaviour
 
     public void ScriptSetup()
     {
-        Camera.main.cullingMask = 0;
+        SetupCamera();
+
+        InitializeSceneObjects();
+
+        UpdateSpheres(1, true, false);
+        UpdateTris(1, true, false);
+
+        ResetBuffersAndSettings();
+
         FrameCount = 0;
+        ProgramStarted = true;
+    }
 
-        SetSceneObjects();
-        LoadOBJ();
+    void SetupCamera()
+    {
+        Camera.main.cullingMask = 0;
+    }
 
+    void InitializeSceneObjects()
+    {
+        InitializeSpheres();
+        InitializeTriMeshes();
+        InitializeMaterials();
         SetConstants(true);
+    }
 
-        InitBuffers();
+    void InitializeSpheres()
+    {
+        // Set Spheres data
+        ReservedNumSpheres = SpheresInput.Length;
+        Spheres ??= new Sphere[SpheresInput.Length];
 
+        for (int i = 0; i < SpheresInput.Length; i++)
+        {
+            Spheres[i] = CreateSphereFromInput(SpheresInput[i], i == 0 ? 1 : 0);
+        }
+    }
+
+    Sphere CreateSphereFromInput(Vector4 input, int materialKey)
+    {
+        return new Sphere
+        {
+            pos = new float3(input.x, input.y, input.z),
+            radius = input.w,
+            materialKey = materialKey
+        };
+    }
+
+    void InitializeTriMeshes()
+    {
+        Tris = new Tri[1]; // OR: Tris = fileImporter.LoadOBJ(0, 2.0f);
+        ReservedNumTris = Tris.Length;
+        SetTriObjectsData();
+    }
+
+    void SetTriObjectsData()
+    {
+        // Set new TriObjects data
+        TriObjects = new TriObject[1];
+        for (int i = 0; i < TriObjects.Length; i++)
+        {
+            TriObjects[i] = CreateTriObject(OBJ_Pos, OBJ_Rot);
+        }
+        CopyPreviousTriObjectsData();
+        ComputeHelper.CreateStructuredBuffer<TriObject>(ref B_TriObjects, TriObjects);
+    }
+
+    TriObject CreateTriObject(float3 position, float3 rotation)
+    {
+        return new TriObject
+        {
+            pos = position,
+            rot = rotation,
+            lastRot = 0,
+            containedRadius = 0.0f,
+            triStart = 0,
+            triEnd = NumTris - 1,
+        };
+    }
+
+    void CopyPreviousTriObjectsData()
+    {
+        if (NumTriObjects != 0)
+        {
+            TriObject[] LastTriObjects = new TriObject[NumTriObjects];
+            B_TriObjects.GetData(LastTriObjects);
+
+            for (int i = 0; i < TriObjects.Length; i++)
+            {
+                TriObjects[i].lastRot = LastTriObjects[i].lastRot;
+            }
+        }
+    }
+
+    void InitializeMaterials()
+    {
+        // Set Materials data
+        Materials ??= new Material2[MatTypesInput1.Length];
+        for (int i = 0; i < MatTypesInput1.Length; i++)
+        {
+            Materials[i] = CreateMaterialFromInput(MatTypesInput1[i], MatTypesInput2[i].x);
+        }
+        ComputeHelper.CreateStructuredBuffer(ref B_Materials, Materials);
+    }
+
+    Material2 CreateMaterialFromInput(Vector4 typeInput, float smoothness)
+    {
+        return new Material2
+        {
+            color = new float3(typeInput.x, typeInput.y, typeInput.z),
+            specularColor = new float3(1, 1, 1),
+            brightness = typeInput.w,
+            smoothness = smoothness
+        };
+    }
+
+    void SetConstants(bool init = false)
+    {
+        SetNumVariables(init);
+        CalculateChunkGrid();
+    }
+
+    void SetNumVariables(bool init)
+    {
+        if (init)
+        {
+            DynamicNumSpheres = 1;
+            DynamicNumTris = 1;
+        }
+        NumTriObjects = TriObjects.Length;
+        NumSpheres = ReservedNumSpheres + DynamicNumSpheres;
+        NumTris = ReservedNumTris + DynamicNumTris;
+        NumObjects = NumSpheres + NumTris;
+        NumObjects_NextPow2 = Func.NextPow2(NumObjects);
+    }
+
+    void CalculateChunkGrid()
+    {
+        float3 ChunkGridDiff = MaxWorldBounds - MinWorldBounds;
+        NumChunks = CalculateNumChunks4(ChunkGridDiff, CellSize);
+        NumChunksAll = NumChunks.x * NumChunks.y * NumChunks.z;
+        NumCellsMS = CalculateNumChunks3(ChunkGridDiff, CellSizeMS);
+
+        ChunkGridOffset = new float3(
+            Mathf.Max(-MinWorldBounds.x, 0.0f),
+            Mathf.Max(-MinWorldBounds.y, 0.0f),
+            Mathf.Max(-MinWorldBounds.z, 0.0f));
+    }
+
+    int4 CalculateNumChunks4(float3 chunkGridDiff, float chunkSize)
+    {
+        int xChunks = Mathf.CeilToInt(chunkGridDiff.x / chunkSize);
+        int yChunks = Mathf.CeilToInt(chunkGridDiff.y / chunkSize);
+        int zChunks = Mathf.CeilToInt(chunkGridDiff.z / chunkSize);
+        int wChunks = xChunks * yChunks;
+        return new int4(xChunks, yChunks, zChunks, wChunks);
+    }
+
+    int3 CalculateNumChunks3(float3 chunkGridDiff, float chunkSize)
+    {
+        int xChunks = Mathf.CeilToInt(chunkGridDiff.x / chunkSize);
+        int yChunks = Mathf.CeilToInt(chunkGridDiff.y / chunkSize);
+        int zChunks = Mathf.CeilToInt(chunkGridDiff.z / chunkSize);
+        return new int3(xChunks, yChunks, zChunks);
+    }
+
+    public void UpdateSpheres(int newDynamicNumSpheres, bool overrideCheck = false, bool resetAll = true)
+    {
+        if (newDynamicNumSpheres > DynamicNumSpheres || overrideCheck)
+        {
+            DynamicNumSpheres = newDynamicNumSpheres;
+            NumSpheres = ReservedNumSpheres + newDynamicNumSpheres;
+            NumObjects = NumSpheres + NumTris;
+            NumObjects_NextPow2 = Func.NextPow2(NumObjects);
+
+            if (resetAll)
+            {
+                ResetBuffersAndSettings();
+            }
+
+            UpdateSpheresBuffer();
+            Debug.Log("New NumSpheres: " + NumSpheres);
+            Debug.Log("New NumObjects: " + NumObjects);
+            shaderHelper.UpdateSphereSettings(manager.dtShader, pcShader, rmShader, ssShader);
+        }
+    }
+
+    void UpdateSpheresBuffer()
+    {
+        ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, NumSpheres);
+        CopyLastSpheresData();
+        B_Spheres.SetData(Spheres);
+    }
+
+    void CopyLastSpheresData()
+    {
+        Sphere[] lastSpheres = Spheres;
+        Spheres = new Sphere[NumSpheres];
+        Array.Copy(lastSpheres, Spheres, Math.Min(lastSpheres.Length, Spheres.Length));
+    }
+
+    void UpdateTris(int newDynamicNumTris, bool overrideCheck = false, bool resetAll = true)
+    {
+        if (newDynamicNumTris > DynamicNumTris || overrideCheck)
+        {
+            DynamicNumTris = newDynamicNumTris;
+            NumTris = ReservedNumTris + newDynamicNumTris;
+            NumObjects = NumSpheres + NumTris;
+            NumObjects_NextPow2 = Func.NextPow2(NumObjects);
+
+            if (resetAll)
+            {
+                ResetBuffersAndSettings();
+            }
+
+            UpdateTrisBuffer();
+            Debug.Log("New NumTris: " + NumTris);
+            Debug.Log("New NumObjects: " + NumObjects);
+            shaderHelper.UpdateTriSettings(mcShader, pcShader, rmShader, ssShader);
+        }
+    }
+
+    void UpdateTrisBuffer()
+    {
+        ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, NumTris);
+        CopyLastTrisData();
+        B_Tris.SetData(Tris);
+    }
+
+    void CopyLastTrisData()
+    {
+        Tri[] lastTris = Tris;
+        Tris = new Tri[NumTris];
+        Array.Copy(lastTris, Tris, Math.Min(lastTris.Length, Tris.Length));
+    }
+
+    void ResetBuffersAndSettings()
+    {
+        SetConstants();
+        ResetBuffersAndTextures();
+        SetShaderBuffersAndSettings();
+    }
+
+    void ResetBuffersAndTextures()
+    {
+        OnDestroy();
+
+        InitializeStructuredBuffers();
+        InitializeAppendBuffers();
+        InitializeTextures();
+    }
+
+    void InitializeStructuredBuffers()
+    {
+        B_Spheres = ComputeHelper.CreateStructuredBuffer<Sphere>(Spheres);
+        B_Materials = ComputeHelper.CreateStructuredBuffer<Material2>(Materials);
+
+        B_Tris = ComputeHelper.CreateStructuredBuffer<Tri>(Tris);
+        B_TriObjects = ComputeHelper.CreateStructuredBuffer<TriObject>(TriObjects);
+
+        B_SpatialLookup = ComputeHelper.CreateStructuredBuffer<int2>(Func.NextPow2(NumObjects * ChunksPerObject));
+        B_StartIndices = ComputeHelper.CreateStructuredBuffer<int>(NumChunksAll);
+    }
+
+    void InitializeAppendBuffers()
+    {
+        CB_A = ComputeHelper.CreateCountBuffer();
+        AC_OccupiedChunks = ComputeHelper.CreateAppendBuffer<int2>(Func.NextPow2(NumObjects * ChunksPerObject));
+        AC_SurfaceCells = ComputeHelper.CreateAppendBuffer<int3>(Func.NextPow2((int)(NumCellsMS.x * NumCellsMS.y * NumCellsMS.z * TriMeshSafety)));
+        AC_FluidTriMesh = ComputeHelper.CreateAppendBuffer<Tri2>(Func.NextPow2((int)(NumCellsMS.x * NumCellsMS.y * NumCellsMS.z * TriMeshSafety * 3)));
+    }
+
+    void InitializeTextures()
+    {
+        T_GridDensities = TextureHelper.CreateTexture(NumCellsMS, 1);
+        T_SurfaceCells = TextureHelper.CreateTexture(NumCellsMS - 1, 1);
+        renderTexture = TextureHelper.CreateTexture(Resolution, 3);
+    }
+
+    void SetShaderBuffersAndSettings()
+    {
         // PreCalc
         shaderHelper.SetPCShaderBuffers(pcShader);
 
@@ -127,164 +399,6 @@ public class Renderer : MonoBehaviour
         // RayMarcher
         shaderHelper.UpdateRMVariables(rmShader);
         shaderHelper.SetRMSettings(rmShader);
-
-        ProgramStarted = true;
-    }
-    
-    void LoadOBJ()
-    {
-        // Vector3[] vertices = LoadOBJMesh.vertices;
-        // int[] triangles = LoadOBJMesh.triangles;
-        // int triNum = triangles.Length / 3;
-        // ReservedNumTris = triNum;
-
-        // // Set Tris data
-        // Tris = new Tri[triNum];
-        // for (int triCount = 0; triCount < triNum; triCount++)
-        // {
-        //     int triCount3 = 3 * triCount;
-        //     int indexA = triangles[triCount3];
-        //     int indexB = triangles[triCount3 + 1];
-        //     int indexC = triangles[triCount3 + 2];
-
-        //     Tris[triCount] = new Tri
-        //     {
-        //         vA = vertices[indexA] * 1.5f,
-        //         vB = vertices[indexB] * 1.5f,
-        //         vC = vertices[indexC] * 1.5f,
-        //         normal = new float3(0.0f, 0.0f, 0.0f), // init data
-        //         materialKey = 1,
-        //         parentKey = 0,
-        //     };
-        // }
-        // ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, Tris);
-
-        // NO LOAD
-        Tris = new Tri[1];
-        ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, 1);
-        ReservedNumTris = 1;
-
-        SetTriObjectData();
-    }
-
-    void SetConstants(bool overrideCheck = false)
-    {
-        NumTriObjects = TriObjects.Length;
-
-        UpdateSpheres(30000, overrideCheck);
-
-        UpdateTris(20000, overrideCheck); // IF THE FLUID MESH GLITCHES: INCREASE THIS NUMBER
-
-        float3 ChunkGridDiff = MaxWorldBounds - MinWorldBounds;
-        NumChunks = new(Mathf.CeilToInt(ChunkGridDiff.x / CellSize),
-                        Mathf.CeilToInt(ChunkGridDiff.y / CellSize),
-                        Mathf.CeilToInt(ChunkGridDiff.z / CellSize), 0);
-        NumChunks.w = NumChunks.x * NumChunks.y;
-        NumChunksAll = NumChunks.x * NumChunks.y * NumChunks.z;
-
-        NumCellsMS = new(Mathf.CeilToInt(ChunkGridDiff.x / CellSizeMS),
-                        Mathf.CeilToInt(ChunkGridDiff.y / CellSizeMS),
-                        Mathf.CeilToInt(ChunkGridDiff.z / CellSizeMS));
-
-        ChunkGridOffset = new float3(
-            Mathf.Max(-MinWorldBounds.x, 0.0f),
-            Mathf.Max(-MinWorldBounds.y, 0.0f),
-            Mathf.Max(-MinWorldBounds.z, 0.0f)
-        );
-
-        // Vector3 a = new(1, 1.1f, 1);
-        // Vector3 b = new(2, 1, 1.1f);
-        // Vector3 c = new(2, 2, 1);
-        // Vector3 p = new(1.5f, 1.9f, 1.1f);
-
-        // Vector2 uv = Func.TriUV(a, b, c, p, 1.0f);
-        // Debug.Log("UV Coordinates of Point p: " + uv);
-    }
-
-    void UpdateTris(int newDynamicNumTris, bool overrideCheck = false)
-    {
-        if (newDynamicNumTris > DynamicNumTris || overrideCheck)
-        {
-            DynamicNumTris = newDynamicNumTris;
-            NumTris = ReservedNumTris + newDynamicNumTris;
-            NumObjects = NumSpheres + NumTris;
-            NumObjects_NextPow2 = Func.NextPow2(NumObjects);
-
-            B_Tris.GetData(Tris);
-            ComputeHelper.CreateStructuredBuffer<Tri>(ref B_Tris, NumTris);
-            B_Tris.SetData(Tris);
-            Tris = new Tri[NumTris];
-            Debug.Log("New NumTris: " + NumTris);
-
-            shaderHelper.UpdateTriSettings(mcShader, pcShader, rmShader, ssShader);
-        }
-    }
-
-    public void UpdateSpheres(int newDynamicNumSpheres, bool overrideCheck = false)
-    {
-        if (newDynamicNumSpheres > DynamicNumSpheres || overrideCheck)
-        {
-            DynamicNumSpheres = newDynamicNumSpheres;
-            NumSpheres = ReservedNumSpheres + newDynamicNumSpheres;
-            NumObjects = NumSpheres + NumTris;
-            NumObjects_NextPow2 = Func.NextPow2(NumObjects);
-
-            B_Spheres.GetData(Spheres);
-            ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, NumSpheres);
-            B_Spheres.SetData(Spheres);
-            Spheres = new Sphere[NumSpheres];
-            Debug.Log("New NumSpheres: " + NumSpheres);
-
-            shaderHelper.UpdateSphereSettings(manager.dtShader, pcShader, rmShader, ssShader);
-        }
-    }
-
-    void InitBuffers()
-    {
-        ComputeHelper.CreateStructuredBuffer<int2>(ref B_SpatialLookup, Func.NextPow2(NumObjects * ChunksPerObject));
-        ComputeHelper.CreateStructuredBuffer<int>(ref B_StartIndices, NumChunksAll);
-
-        ComputeHelper.CreateAppendBuffer<int2>(ref AC_OccupiedChunks, Func.NextPow2(NumObjects * ChunksPerObject));
-        ComputeHelper.CreateCountBuffer(ref CB_A);
-
-        TextureHelper.CreateTexture(ref T_GridDensities, NumCellsMS, 1);
-        TextureHelper.CreateTexture(ref T_SurfaceCells, NumCellsMS - 1, 1);
-        ComputeHelper.CreateAppendBuffer<int3>(ref AC_SurfaceCells, Func.NextPow2((int)(NumCellsMS.x*NumCellsMS.y*NumCellsMS.z * TriMeshSafety)));
-        ComputeHelper.CreateAppendBuffer<Tri2>(ref AC_FluidTriMesh, Func.NextPow2((int)(NumCellsMS.x*NumCellsMS.y*NumCellsMS.z * TriMeshSafety * 3)));
-
-        TextureHelper.CreateTexture(ref renderTexture, Resolution, 3);
-    }
-
-    void SetTriObjectData()
-    {
-        // Set new TriObjects data
-        TriObjects = new TriObject[1];
-        for (int i = 0; i < TriObjects.Length; i++)
-        {
-            TriObjects[i] = new TriObject
-            {
-                pos = OBJ_Pos,
-                rot = OBJ_Rot,
-                lastRot = 0,
-                containedRadius = 0.0f,
-                triStart = 0,
-                triEnd = NumTris - 1,
-            };
-        }
-
-        // Fill in relevant previous TriObjects data
-        if (NumTriObjects != 0)
-        {
-            TriObject[] LastTriObjects = new TriObject[NumTriObjects];
-            B_TriObjects.GetData(LastTriObjects);
-
-            for (int i = 0; i < TriObjects.Length; i++)
-            {
-                TriObjects[i].lastRot = LastTriObjects[i].lastRot;
-            }
-        }
-
-        ComputeHelper.CreateStructuredBuffer<TriObject>(ref B_TriObjects, TriObjects);
     }
 
     public void UpdateRendererData()
@@ -298,53 +412,38 @@ public class Renderer : MonoBehaviour
     {
         if (ProgramStarted)
         {
+            InitializeSceneObjects();
+
+            // Reset variables / buffers on a new chosen fluid render style
+            if (fluidRenderStyle != lastFluidRenderStyle)
+            {
+                if (fluidRenderStyle != FluidRenderStyle.ParticleSpheres) UpdateSpheres(1, true);
+                if (fluidRenderStyle != FluidRenderStyle.IsoSurfaceMesh) UpdateTris(1, true);
+                lastFluidRenderStyle = fluidRenderStyle;
+            }
+
             FrameCount = 0;
-
-            SetConstants();
-            UpdateSettings();
-
             SettingsChanged = true;
         }
     }
 
-    void UpdateSettings()
-    {
-        SetTriObjectData();
-        SetSceneObjects();
-        shaderHelper.SetRMSettings(rmShader);
-    }
 
-    void SetSceneObjects()
-    {
-        // Set Spheres data
-        ReservedNumSpheres = SpheresInput.Length;
-        Spheres = new Sphere[SpheresInput.Length];
-        for (int i = 0; i < Spheres.Length; i++)
-        {
-            Spheres[i] = new Sphere
-            {
-                pos = new float3(SpheresInput[i].x, SpheresInput[i].y, SpheresInput[i].z),
-                radius = SpheresInput[i].w,
-                materialKey = i == 0 ? 1 : 0
-            };
-        }
-        ComputeHelper.CreateStructuredBuffer<Sphere>(ref B_Spheres, Spheres);
 
-        // Set Materials data
-        Materials = new Material2[MatTypesInput1.Length];
-        for (int i = 0; i < Materials.Length; i++)
-        {
-            Materials[i] = new Material2
-            {
-                color = new float3(MatTypesInput1[i].x, MatTypesInput1[i].y, MatTypesInput1[i].z),
-                specularColor = new float3(1, 1, 1), // Specular color is currently set to white for all Material2 types
-                brightness = MatTypesInput1[i].w,
-                smoothness = MatTypesInput2[i].x
-            };
-        }
-        ComputeHelper.CreateStructuredBuffer<Material2>(ref B_Materials, Materials);
-    }
-    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     public void RunSSShader()
     {
         // Fill OccupiedChunks
