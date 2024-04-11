@@ -136,6 +136,34 @@ namespace Resources
         {
             return Mathf.CeilToInt(a / divisor) * divisor;
         }
+
+        /// <summary>Calculates the uv coord for a point projected onto a triangle, with respect to the scale</summary>
+        public static Vector2 TriUV(Vector3 a, Vector3 b, Vector3 c, Vector3 p)
+        {
+            // Calculate barycentric coordinates of point p with respect to triangle ABC
+            Vector3 v0 = b - a;
+            Vector3 v1 = c - a;
+            Vector3 v2 = p - a;
+
+            float dot00 = Vector3.Dot(v0, v0);
+            float dot01 = Vector3.Dot(v0, v1);
+            float dot02 = Vector3.Dot(v0, v2);
+            float dot11 = Vector3.Dot(v1, v1);
+            float dot12 = Vector3.Dot(v1, v2);
+
+            float invDenom = 1 / (dot00 * dot11 - dot01 * dot01);
+            float u = (dot11 * dot02 - dot01 * dot12) * invDenom;
+            float v = (dot00 * dot12 - dot01 * dot02) * invDenom;
+            float w = 1 - u - v;
+
+            Vector2 uvA = new Vector2(0, 0); // UV coordinates for vertex a
+            Vector2 uvB = new Vector2(1, 0); // UV coordinates for vertex b
+            Vector2 uvC = new Vector2(0, 1); // UV coordinates for vertex c
+
+            Vector2 uv = (u * uvA + v * uvB + w * uvC) % 1.0f;
+
+            return uv;
+        }
     }
 #endregion
 }

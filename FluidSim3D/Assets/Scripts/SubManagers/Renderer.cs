@@ -191,6 +191,14 @@ public class Renderer : MonoBehaviour
             Mathf.Max(-MinWorldBounds.y, 0.0f),
             Mathf.Max(-MinWorldBounds.z, 0.0f)
         );
+
+        // Vector3 a = new(1, 1.1f, 1);
+        // Vector3 b = new(2, 1, 1.1f);
+        // Vector3 c = new(2, 2, 1);
+        // Vector3 p = new(1.5f, 1.9f, 1.1f);
+
+        // Vector2 uv = Func.TriUV(a, b, c, p);
+        // Debug.Log("UV Coordinates of Point p: " + uv);
     }
 
     void UpdateTris(int newDynamicNumTris, bool overrideCheck = false)
