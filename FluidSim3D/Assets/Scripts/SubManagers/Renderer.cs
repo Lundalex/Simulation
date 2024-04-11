@@ -197,7 +197,7 @@ public class Renderer : MonoBehaviour
         // Vector3 c = new(2, 2, 1);
         // Vector3 p = new(1.5f, 1.9f, 1.1f);
 
-        // Vector2 uv = Func.TriUV(a, b, c, p);
+        // Vector2 uv = Func.TriUV(a, b, c, p, 1.0f);
         // Debug.Log("UV Coordinates of Point p: " + uv);
     }
 

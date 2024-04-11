@@ -138,7 +138,7 @@ namespace Resources
         }
 
         /// <summary>Calculates the uv coord for a point projected onto a triangle, with respect to the scale</summary>
-        public static Vector2 TriUV(Vector3 a, Vector3 b, Vector3 c, Vector3 p)
+        public static Vector2 TriUV(Vector3 a, Vector3 b, Vector3 c, Vector3 p, float scale)
         {
             // Calculate barycentric coordinates of point p with respect to triangle ABC
             Vector3 v0 = b - a;
@@ -160,7 +160,9 @@ namespace Resources
             Vector2 uvB = new Vector2(1, 0); // UV coordinates for vertex b
             Vector2 uvC = new Vector2(0, 1); // UV coordinates for vertex c
 
-            Vector2 uv = (u * uvA + v * uvB + w * uvC) % 1.0f;
+            Vector2 uv = (u * uvA + v * uvB + w * uvC) * scale;
+            uv.x = uv.x % 1.0f;
+            uv.y = uv.y % 1.0f;
 
             return uv;
         }
