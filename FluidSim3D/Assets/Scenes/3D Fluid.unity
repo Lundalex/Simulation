@@ -370,9 +370,9 @@ MonoBehaviour:
     y: 30
     z: 20
   CellSize: 0.27
-  CellSizeMS: 0.5
+  CellSizeMS: 0.3
   ThresholdMS: 0.5
-  fluidRenderStyle: 1
+  fluidRenderStyle: 0
   OBJ_Pos:
     x: -2.65
     y: -4.75
@@ -463,7 +463,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   TimeStepsPerRenderFrame: 3
-  CellSizeSL: 0.5
+  CellSizeSL: 0.3
   Offset2:
     x: -0.36
     y: -4.73

@@ -239,7 +239,7 @@ public class Renderer : MonoBehaviour
 
     void SetNumVariables(bool init)
     {
-        if (init)
+        if (init) // This may be a reason to a fluid render type sometimes not working correctly
         {
             DynamicNumSpheres = 1;
             DynamicNumTris = 1;
