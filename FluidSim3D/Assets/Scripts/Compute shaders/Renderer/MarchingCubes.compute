@@ -56,7 +56,7 @@ NearInfo GetNearDstCheap(float3 pos)
     nearInfo.materialKey = -1;
     float nearDstSqr = FLT_MAX;
     int index = startIndex;
-    while (index != -1 && chunkKey == SpatialLookup[index].y && index - startIndex < 5)
+    while (chunkKey == SpatialLookup[index].y)
     {
         int pointIndex = SpatialLookup[index].x;
         float3 point2 = Points[pointIndex];
@@ -97,7 +97,7 @@ NearInfo GetNearDst(float3 pos, int radius)
                 int startIndex = StartIndices[chunkKey];
  
                 int index = startIndex;
-                while (index != -1 && chunkKey == SpatialLookup[index].y)
+                while (chunkKey == SpatialLookup[index].y)
                 {
                     int pointIndex = SpatialLookup[index].x;
                     float3 point2 = Points[pointIndex];
@@ -142,7 +142,7 @@ NearInfo GetNearDensity(float3 pos, int radius)
                 int startIndex = StartIndices[chunkKey];
  
                 int index = startIndex;
-                while (index != -1 && chunkKey == SpatialLookup[index].y)
+                while (chunkKey == SpatialLookup[index].y)
                 {
                     int pointIndex = SpatialLookup[index].x;
                     float3 point2 = Points[pointIndex];

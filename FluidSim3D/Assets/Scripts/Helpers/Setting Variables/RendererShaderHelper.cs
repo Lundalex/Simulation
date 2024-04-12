@@ -20,10 +20,19 @@ public class RendererShaderHelper : MonoBehaviour
         rmShader.SetBuffer(0, "Materials", render.B_Materials);
         rmShader.SetBuffer(0, "SpatialLookup", render.B_SpatialLookup);
         rmShader.SetBuffer(0, "StartIndices", render.B_StartIndices);
+        rmShader.SetBuffer(0, "SafeDistances", render.B_SafeDistances);
 
-        rmShader.SetTexture(0, "Result", render.renderTexture);
+        rmShader.SetTexture(0, "Result", render.T_Result);
+    }
 
-        rmShader.SetTexture(1, "Result", render.renderTexture);
+    public void SetPPShaderBuffers (ComputeShader ppShader)
+    {
+        // Noise textures are set by TextureCreator
+
+        ppShader.SetTexture(0, "Result", render.T_Result);
+        ppShader.SetTexture(0, "AccResult", render.renderTexture);
+
+        ppShader.SetTexture(1, "AccResult", render.renderTexture);
     }
 
     public void SetPCShaderBuffers (ComputeShader pcShader)
@@ -32,6 +41,9 @@ public class RendererShaderHelper : MonoBehaviour
         pcShader.SetBuffer(0, "Tris", render.B_Tris);
 
         pcShader.SetBuffer(1, "TriObjects", render.B_TriObjects);
+
+        pcShader.SetBuffer(2, "StartIndices", render.B_StartIndices);
+        pcShader.SetBuffer(2, "SafeDistances", render.B_SafeDistances);
     }
 
     public void SetSSShaderBuffers (ComputeShader ssShader)
@@ -43,13 +55,15 @@ public class RendererShaderHelper : MonoBehaviour
         ssShader.SetBuffer(1, "Tris", render.B_Tris);
         ssShader.SetBuffer(1, "OccupiedChunksAPPEND", render.AC_OccupiedChunks);
 
-        ssShader.SetBuffer(2, "OccupiedChunksCONSUME", render.AC_OccupiedChunks);
-        ssShader.SetBuffer(2, "SpatialLookup", render.B_SpatialLookup);
+        ssShader.SetBuffer(2, "StartIndices", render.B_StartIndices);
 
+        ssShader.SetBuffer(3, "OccupiedChunksCONSUME", render.AC_OccupiedChunks);
         ssShader.SetBuffer(3, "SpatialLookup", render.B_SpatialLookup);
 
         ssShader.SetBuffer(4, "SpatialLookup", render.B_SpatialLookup);
-        ssShader.SetBuffer(4, "StartIndices", render.B_StartIndices);
+
+        ssShader.SetBuffer(5, "SpatialLookup", render.B_SpatialLookup);
+        ssShader.SetBuffer(5, "StartIndices", render.B_StartIndices);
     }
 
     public void SetNGShaderTextures (ComputeShader ngShader)
@@ -105,10 +119,6 @@ public class RendererShaderHelper : MonoBehaviour
         rmShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
         rmShader.SetFloat("CellSize", render.CellSize);
 
-        // Noise settings
-        rmShader.SetVector("NoiseResolution", new Vector3(texture.NoiseResolution.x, texture.NoiseResolution.y, texture.NoiseResolution.z));
-        rmShader.SetFloat("NoisePixelSize", texture.NoisePixelSize);
-
         // Ray setup settings
         rmShader.SetInt("MaxStepCount", render.MaxStepCount);
         rmShader.SetInt("RaysPerPixel", render.RaysPerPixel);
@@ -127,10 +137,20 @@ public class RendererShaderHelper : MonoBehaviour
         rmShader.SetFloat("focalPlaneFactor", render.focalPlaneFactor);
     }
 
+    public void SetPPSettings (ComputeShader ppShader)
+    {
+        SetPPShaderBuffers(ppShader);
+
+        // Noise settings
+        ppShader.SetVector("NoiseResolution", new Vector3(texture.NoiseResolution.x, texture.NoiseResolution.y, texture.NoiseResolution.z));
+        ppShader.SetFloat("NoisePixelSize", texture.NoisePixelSize);
+    }
+
     public void SetPCSettings (ComputeShader pcShader)
     {
         pcShader.SetInt("NumTris", render.NumTris);
         pcShader.SetInt("NumTriObjects", render.NumTriObjects);
+        pcShader.SetVector("NumChunks", new Vector4(render.NumChunks.x, render.NumChunks.y, render.NumChunks.z, render.NumChunks.w));
     }
 
     public void SetSSSettings (ComputeShader ssShader)
@@ -164,6 +184,12 @@ public class RendererShaderHelper : MonoBehaviour
         msShader.SetVector("NumChunks", new Vector4(manager.NumChunks.x, manager.NumChunks.y, manager.NumChunks.z, manager.NumChunks.w));
         msShader.SetFloat("CellSizeSL", manager.CellSizeSL);
         msShader.SetVector("ChunkGridOffset", new Vector3(render.ChunkGridOffset.x, render.ChunkGridOffset.y, render.ChunkGridOffset.z));
+    }
+
+    public void UpdatePPVariables (ComputeShader ppShader)
+    {
+        // Frame set variables
+        ppShader.SetInt("FrameCount", render.FrameCount);
     }
 
     public void UpdateRMVariables (ComputeShader rmShader)

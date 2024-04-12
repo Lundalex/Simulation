@@ -7,28 +7,49 @@ using System;
 
 public class ProgramManager : MonoBehaviour
 {
+#region Inspector
+    [Header("Primary Processes")]
+    public int TimeStepsPerRenderFrame;
+
+    [Header("Data Transfer")]
     public float CellSizeSL;
     public float3 Offset2;
-    public int TimeStepsPerRenderFrame;
+
+    [Header("Fluid Object")]
     public float RotationSpeed;
     public float ParticleSpheresRadius;
     public float3 Rot;
+
+    [Header("References")]
     public Renderer render;
     public Simulation sim;
     public TextureCreator texture;
     public ComputeShader dtShader;
     public ComputeShader ssShader;
     public ProgramManagerShaderHelper shaderHelper;
+#endregion
+
+#region Shader Settings
     private const int dtShaderThreadSize = 512; // /1024
     private const int ssShaderThreadSize = 512; // /1024
-    private bool ProgramStarted = false;
+#endregion
+
+#region Run Time Set Variables
     [NonSerialized] public int4 NumChunks;
     [NonSerialized] public int NumChunksAll;
     [NonSerialized] public int NumPoints;
     [NonSerialized] public int NumPoints_NextPow2;
+#endregion
+
+#region Buffers
     public ComputeBuffer B_Points;
     public ComputeBuffer B_SpatialLookup;
     public ComputeBuffer B_StartIndices;
+#endregion
+
+#region Other
+    private bool ProgramStarted = false;
+#endregion
 
     void Awake()
     {

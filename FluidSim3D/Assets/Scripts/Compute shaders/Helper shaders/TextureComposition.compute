@@ -9,6 +9,8 @@
 #pragma kernel GaussianBlur_3D_F1 // 8
 #pragma kernel BoxBlur_3D_F1 // 9
 
+#pragma kernel Copy_2D_F3 // 10
+
 #include "../Constants.hlsl"
 
 const float LerpWeight;
@@ -20,6 +22,10 @@ const uint3 Resolution;
 RWTexture3D<float> Texture_A;
 RWTexture3D<float> Texture_B;
 RWTexture3D<float> Texture_Output;
+
+RWTexture2D<float3> Texture_A_2D;
+RWTexture2D<float3> Texture_B_2D;
+RWTexture2D<float3> Texture_Output_2D;
 
 [numthreads(TN_TC,TN_TC,TN_TC)]
 void Copy_3D_F1 (uint3 id : SV_DispatchThreadID)
@@ -117,4 +123,10 @@ void BoxBlur_3D_F1 (uint3 id : SV_DispatchThreadID)
     float weightedSum = sum / totWeight;
 
     Texture_Output[id] = weightedSum;
+}
+
+[numthreads(TN_TC2,TN_TC2,1)]
+void Copy_2D_F3 (uint3 id : SV_DispatchThreadID)
+{
+    Texture_Output_2D[id.xy] = Texture_A_2D[id.xy];
 }

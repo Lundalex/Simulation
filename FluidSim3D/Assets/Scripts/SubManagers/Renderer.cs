@@ -4,13 +4,13 @@ using System;
 
 // Import utils from Resources.cs
 using Resources;
-
 public class Renderer : MonoBehaviour
 {
 #region Inspector
     [Header("Screen")]
     public float fieldOfView = 70.0f;
     public int2 Resolution = new(1920, 1080);
+    public bool AccumulateFrames = false;
 
     [Header("Ray Marcher")]
     public int MaxStepCount = 60;
@@ -21,6 +21,7 @@ public class Renderer : MonoBehaviour
     public float focalPlaneFactor = 16.7f; // focalPlaneFactor must be positive
     public float MaxStepSize = 0.15f;
     public float TriMeshSafety = 0.2f;
+    [Range(1.0f, 3.0f)] public float DynamicTrisSafety;
     public int FrameCount = 0;
     [Range(1, 1000)] public int ChunksPerObject = 50;
 
@@ -45,11 +46,14 @@ public class Renderer : MonoBehaviour
     public ComputeShader ssShader;
     public ComputeShader mcShader;
     public ComputeShader ngShader;
-    [NonSerialized] public RenderTexture renderTexture; // Texture drawn to screen
+    public ComputeShader ppShader;
     [NonSerialized] public RenderTexture T_GridDensities;
     [NonSerialized] public RenderTexture T_SurfaceCells;
+    [NonSerialized] public RenderTexture T_Result;
+    [NonSerialized] public RenderTexture renderTexture; // Texture drawn to screen
     public RendererShaderHelper shaderHelper;
     public TextureCreator textureCreator;
+    public TextureHelper textureHelper;
     public Simulation sim;
     public ProgramManager manager;
     public FileImporter fileImporter;
@@ -57,7 +61,9 @@ public class Renderer : MonoBehaviour
 
 #region Shader Settings
     private const int rmShaderThreadSize = 8; // /32
+    private const int ppShaderThreadSize = 8; // /32
     private const int pcShaderThreadSize = 512; // / 1024
+    private const int pcShaderThreadSize2 = 8; // /~10
     private const int ssShaderThreadSize = 512; // / 1024
     private const int msShaderThreadSize = 8; // /~10
     private const int msShaderThreadSize2 = 512; //1024
@@ -77,10 +83,14 @@ public class Renderer : MonoBehaviour
 #region Spatial Sort
     public ComputeBuffer B_SpatialLookup;
     public ComputeBuffer B_StartIndices;
+    public ComputeBuffer B_SafeDistances;
     public ComputeBuffer AC_OccupiedChunks;
     public ComputeBuffer AC_SurfaceCells;
     public ComputeBuffer AC_FluidTriMesh;
     public ComputeBuffer CB_A;
+#endregion
+
+#region Other
     private FluidRenderStyle lastFluidRenderStyle;
     private bool ProgramStarted = false;
     private bool SettingsChanged = true;
@@ -276,7 +286,7 @@ public class Renderer : MonoBehaviour
         if (newDynamicNumSpheres > DynamicNumSpheres || overrideCheck)
         {
             DynamicNumSpheres = newDynamicNumSpheres;
-            NumSpheres = ReservedNumSpheres + newDynamicNumSpheres;
+            NumSpheres = ReservedNumSpheres + DynamicNumSpheres;
             NumObjects = NumSpheres + NumTris;
             NumObjects_NextPow2 = Func.NextPow2(NumObjects);
 
@@ -286,8 +296,8 @@ public class Renderer : MonoBehaviour
             }
 
             UpdateSpheresBuffer();
-            Debug.Log("New NumSpheres: " + NumSpheres);
-            Debug.Log("New NumObjects: " + NumObjects);
+            // Debug.Log("New NumSpheres: " + NumSpheres);
+            // Debug.Log("New NumObjects: " + NumObjects);
             shaderHelper.UpdateSphereSettings(manager.dtShader, pcShader, rmShader, ssShader);
         }
     }
@@ -310,8 +320,8 @@ public class Renderer : MonoBehaviour
     {
         if (newDynamicNumTris > DynamicNumTris || overrideCheck)
         {
-            DynamicNumTris = newDynamicNumTris;
-            NumTris = ReservedNumTris + newDynamicNumTris;
+            DynamicNumTris = Mathf.Max(newDynamicNumTris, Mathf.CeilToInt(newDynamicNumTris * DynamicTrisSafety));
+            NumTris = ReservedNumTris + DynamicNumTris;
             NumObjects = NumSpheres + NumTris;
             NumObjects_NextPow2 = Func.NextPow2(NumObjects);
 
@@ -321,8 +331,8 @@ public class Renderer : MonoBehaviour
             }
 
             UpdateTrisBuffer();
-            Debug.Log("New NumTris: " + NumTris);
-            Debug.Log("New NumObjects: " + NumObjects);
+            // Debug.Log("New NumTris: " + NumTris);
+            // Debug.Log("New NumObjects: " + NumObjects);
             shaderHelper.UpdateTriSettings(mcShader, pcShader, rmShader, ssShader);
         }
     }
@@ -367,6 +377,7 @@ public class Renderer : MonoBehaviour
 
         B_SpatialLookup = ComputeHelper.CreateStructuredBuffer<int2>(Func.NextPow2(NumObjects * ChunksPerObject));
         B_StartIndices = ComputeHelper.CreateStructuredBuffer<int>(NumChunksAll);
+        B_SafeDistances = ComputeHelper.CreateStructuredBuffer<float>(NumChunksAll);
     }
 
     void InitializeAppendBuffers()
@@ -381,6 +392,7 @@ public class Renderer : MonoBehaviour
     {
         T_GridDensities = TextureHelper.CreateTexture(NumCellsMS, 1);
         T_SurfaceCells = TextureHelper.CreateTexture(NumCellsMS - 1, 1);
+        T_Result = TextureHelper.CreateTexture(Resolution, 3);
         renderTexture = TextureHelper.CreateTexture(Resolution, 3);
     }
 
@@ -404,6 +416,10 @@ public class Renderer : MonoBehaviour
         // RayMarcher
         shaderHelper.UpdateRMVariables(rmShader);
         shaderHelper.SetRMSettings(rmShader);
+
+        // PostProcessing
+        shaderHelper.UpdatePPVariables(ppShader);
+        shaderHelper.SetPPSettings(ppShader);
     }
 
     public void UpdateRendererData()
@@ -411,6 +427,7 @@ public class Renderer : MonoBehaviour
         FrameCount++;
         shaderHelper.UpdateRMVariables(rmShader);
         shaderHelper.UpdateNGVariables(ngShader);
+        shaderHelper.UpdatePPVariables(ppShader);
     }
 
     private void OnValidate()
@@ -432,8 +449,12 @@ public class Renderer : MonoBehaviour
         }
     }
 
+    // COMPUTE SHADER DISPATCH
+
     public void RunSSShader()
     {
+        ComputeHelper.DispatchKernel(ssShader, "PrepStartIndices", NumChunksAll, ssShaderThreadSize);
+
         // Fill OccupiedChunks
         AC_OccupiedChunks.SetCounterValue(0);
         ComputeHelper.DispatchKernel(ssShader, "CalcSphereChunkKeys", NumSpheres, ssShaderThreadSize);
@@ -449,7 +470,13 @@ public class Renderer : MonoBehaviour
     public void RunPCShader()
     {
         ComputeHelper.DispatchKernel(pcShader, "CalcTriNormals", NumTris, pcShaderThreadSize);
-        if (SettingsChanged) { SettingsChanged = false; ComputeHelper.DispatchKernel(pcShader, "SetLastRotations", NumTriObjects, pcShaderThreadSize); }
+        if (SettingsChanged) SettingsChanged = false; ComputeHelper.DispatchKernel(pcShader, "SetLastRotations", NumTriObjects, pcShaderThreadSize);
+
+        // Safe distances
+        ComputeHelper.DispatchKernel(pcShader, "SafeDistancesPass", NumChunks.xyz, pcShaderThreadSize2);
+
+        // var test = ComputeHelper.GetStructuredBufferData<float>(B_SafeDistances);
+        // int a = 0;
     }
 
     public void RunMCShader()
@@ -474,8 +501,14 @@ public class Renderer : MonoBehaviour
     public void RunRMShader()
     {
         ComputeHelper.DispatchKernel(rmShader, "TraceRays", Resolution, rmShaderThreadSize);
+    }
 
-        if (textureCreator.RenderNoiseTextures) {ComputeHelper.DispatchKernel(rmShader, "RenderNoiseTextures", Resolution, rmShaderThreadSize); }
+    public void RunPPShader()
+    {
+        if (AccumulateFrames) ComputeHelper.DispatchKernel(ppShader, "AccumulateFrames", Resolution, ppShaderThreadSize);
+        else textureHelper.Copy(ref renderTexture, T_Result, Resolution);
+
+        if (textureCreator.RenderNoiseTextures) ComputeHelper.DispatchKernel(ppShader, "RenderNoiseTextures", Resolution, ppShaderThreadSize);
     }
 
     public void OnRenderImage(RenderTexture src, RenderTexture dest)
@@ -484,13 +517,14 @@ public class Renderer : MonoBehaviour
         RunPCShader(); // PreCalc
         RunSSShader(); // SpatialSort
         RunRMShader(); // RayMarcher
+        RunPPShader(); // PostProcessing
 
         Graphics.Blit(renderTexture, dest);
     }
 
     void OnDestroy()
     {
-        ComputeHelper.Release(B_TriObjects, B_Tris, B_Spheres, B_Materials, B_SpatialLookup, B_StartIndices, AC_OccupiedChunks, AC_SurfaceCells, AC_FluidTriMesh, CB_A);
+        ComputeHelper.Release(B_TriObjects, B_Tris, B_Spheres, B_Materials, B_SpatialLookup, B_StartIndices, B_SafeDistances, AC_OccupiedChunks, AC_SurfaceCells, AC_FluidTriMesh, CB_A);
     }
 #endregion
 }

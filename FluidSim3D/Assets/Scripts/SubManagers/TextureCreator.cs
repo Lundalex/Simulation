@@ -6,7 +6,7 @@ using Resources;
 
 public class TextureCreator : MonoBehaviour
 {
-#region Inpsector
+#region Inspector
     [Header("Noise settings")]
     public int3 NoiseResolution = new(512, 512, 256);
     public int NoiseCellSize = 128;
@@ -16,7 +16,7 @@ public class TextureCreator : MonoBehaviour
 
     [Header("References")]
     public ComputeShader ngShader;
-    public ComputeShader rmShader;
+    public ComputeShader ppShader;
     public TextureHelper textureHelper;
 #endregion
 
@@ -77,8 +77,9 @@ public class TextureCreator : MonoBehaviour
         textureHelper.ChangeBrightness(ref voronoi0, NoiseResolution, 1.25f);
         textureHelper.GaussianBlur(ref voronoi0, NoiseResolution, 3, 5);
 
-        rmShader.SetTexture(1, "NoiseA", voronoi0); // Final texture stored in voronoi0
-        rmShader.SetTexture(1, "NoiseB", voronoi0); // Final texture stored in voronoi0
+        // Final texture stored in voronoi0
+        ppShader.SetTexture(0, "NoiseA", voronoi0);
+        ppShader.SetTexture(0, "NoiseB", voronoi0);
     }
 #endregion
 }

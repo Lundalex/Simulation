@@ -1,13 +1,19 @@
 #pragma kernel CalcTriNormals // 0
 #pragma kernel SetLastRotations // 1
+#pragma kernel SafeDistancesPass // 2
 
 #include "RendererResources.hlsl"
 
 const uint NumTris;
 const uint NumTriObjects;
 
+const uint4 NumChunks;
+
 RWStructuredBuffer<Tri> Tris;
 RWStructuredBuffer<TriObject> TriObjects;
+
+RWStructuredBuffer<int> StartIndices;
+RWStructuredBuffer<float> SafeDistances;
 
 float3 GetPlaneNormal (float3 a, float3 b, float3 c)
 {
@@ -15,6 +21,18 @@ float3 GetPlaneNormal (float3 a, float3 b, float3 c)
     float3 ac = c - a;
 
     return normalize(cross(ab, ac));
+}
+
+bool ValidChunk(int3 chunk)
+{
+    return chunk.x >= 0 && chunk.x < (int)NumChunks.x &&
+           chunk.y >= 0 && chunk.y < (int)NumChunks.y &&
+           chunk.z >= 0 && chunk.z < (int)NumChunks.z;
+}
+
+uint GetChunkKey(uint3 chunk)
+{
+    return chunk.x + chunk.y*NumChunks.x + chunk.z*NumChunks.w;
 }
 
 [numthreads(TN_PC,1,1)]
@@ -51,4 +69,13 @@ void SetLastRotations (uint3 id : SV_DispatchThreadID)
     {
         TriObjects[i].lastRot = triObject.rot;
     }
+}
+
+[numthreads(TN_PC2,TN_PC2,TN_PC2)]
+void SafeDistancesPass (uint3 id : SV_DispatchThreadID)
+{
+    if (!ValidChunk(id)) return;
+    uint chunkKey = GetChunkKey(id);
+
+    if (StartIndices[chunkKey] == 0) SafeDistances[chunkKey] = 1.0;
 }

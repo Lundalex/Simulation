@@ -1,0 +1,54 @@
+#pragma kernel AccumulateFrames // 0
+#pragma kernel RenderNoiseTextures // 1
+
+#include "RendererResources.hlsl"
+
+// Noise settings
+const uint3 NoiseResolution;
+const float NoisePixelSize;
+
+// Per frame
+const uint FrameCount; // Each frame: FrameCount++
+
+// Shader output buffer
+RWTexture2D<float4> Result; // abc: rgb, d: opacity
+RWTexture2D<float4> AccResult; // abc: rgb, d: opacity
+
+RWTexture3D<float> NoiseA;
+RWTexture3D<float> NoiseB;
+
+[numthreads(TN_PP,TN_PP,1)]
+void AccumulateFrames (uint3 id : SV_DispatchThreadID)
+{
+    float3 accColor = float3(AccResult[id.xy].x, AccResult[id.xy].y, AccResult[id.xy].z);
+    float3 newColor = float3(Result[id.xy].x, Result[id.xy].y, Result[id.xy].z);
+
+    float weight = 1.0 / (FrameCount + 1);
+    float3 accumulatedCol = saturate(accColor * (1 - weight) + newColor * weight);
+
+    AccResult[id.xy] = float4(accumulatedCol.x, accumulatedCol.y, accumulatedCol.z, 0);
+}
+
+[numthreads(TN_PP,TN_PP,1)]
+void RenderNoiseTextures (uint3 id : SV_DispatchThreadID)
+{
+    float pS = NoisePixelSize; // pixelSize
+    pS = max(pS, 0.1);
+    uint2 scaledID = id.xy % pS + id.xy / pS;
+
+    uint2 idW = scaledID % NoiseResolution.xy;
+    if (idW.x == 0 && id.x != 0) return;
+
+    float result;
+    result = scaledID.x > NoiseResolution.x
+    ? NoiseB[uint3(idW.x % pS + idW.x / pS, idW.y % pS + idW.y / pS, (uint)FrameCount % NoiseResolution.z)]
+    : NoiseA[uint3(idW.x % pS + idW.x / pS, idW.y % pS + idW.y / pS, (uint)FrameCount % NoiseResolution.z)];
+
+    if (scaledID.x < 2*NoiseResolution.x && scaledID.y < NoiseResolution.y && result > 0.0)
+    {
+        Result[id.xy] = float4(result, result, result, 0);
+        return;
+    }
+    // Override the whole rendered image?
+    // Result[id.xy] = float4(0, 0, 0, 0);
+}

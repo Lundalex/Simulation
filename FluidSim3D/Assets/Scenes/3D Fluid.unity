@@ -220,11 +220,10 @@ MonoBehaviour:
     z: 256
   NoiseCellSize: 128
   LerpFactor: 0.15
-  inputB: 3
   NoisePixelSize: 0.73
   RenderNoiseTextures: 0
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
-  rmShader: {fileID: 7200000, guid: d5ebe9c8e6938fa45bc747b5a6e8da8c, type: 3}
+  ppShader: {fileID: 7200000, guid: 41fd41138efb24244b066cbf2551dae8, type: 3}
   textureHelper: {fileID: 473926888}
 --- !u!114 &473926888
 MonoBehaviour:
@@ -346,11 +345,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4931dbbf0e8d469468045a57e5273257, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fluidRenderStyle: 0
   fieldOfView: 62
   Resolution:
     x: 1920
     y: 1080
+  AccumulateFrames: 0
   MaxStepCount: 110
   RaysPerPixel: 1
   HitThreshold: 0.01
@@ -359,6 +358,7 @@ MonoBehaviour:
   focalPlaneFactor: 16
   MaxStepSize: 0.27
   TriMeshSafety: 7
+  DynamicTrisSafety: 2
   FrameCount: 0
   ChunksPerObject: 150
   MinWorldBounds:
@@ -372,6 +372,7 @@ MonoBehaviour:
   CellSize: 0.27
   CellSizeMS: 0.5
   ThresholdMS: 0.5
+  fluidRenderStyle: 1
   OBJ_Pos:
     x: -2.65
     y: -4.75
@@ -408,8 +409,10 @@ MonoBehaviour:
   ssShader: {fileID: 7200000, guid: 9af24f6caf8c76746826234ef1d4552b, type: 3}
   mcShader: {fileID: 7200000, guid: c8b0c0ed857fbca42a6211171c8e8dc1, type: 3}
   ngShader: {fileID: 7200000, guid: d9b7282c52027fd4baa5aebc98ffebee, type: 3}
+  ppShader: {fileID: 7200000, guid: 41fd41138efb24244b066cbf2551dae8, type: 3}
   shaderHelper: {fileID: 868168750}
   textureCreator: {fileID: 473926887}
+  textureHelper: {fileID: 473926888}
   sim: {fileID: 2125271849}
   manager: {fileID: 1164272048}
   fileImporter: {fileID: 0}
@@ -459,14 +462,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0c64949e5b2df884bb8f7c5f3b908c48, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  TimeStepsPerRenderFrame: 3
   CellSizeSL: 0.5
   Offset2:
     x: -0.36
     y: -4.73
     z: -41.5
-  TimeStepsPerRenderFrame: 3
   RotationSpeed: 0
-  ParticleSpheresRadius: 0.2
+  ParticleSpheresRadius: 0.17
   Rot:
     x: 0
     y: 0
@@ -564,7 +567,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c4e01cbd809e59f4e9d22e12742b644e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  ParticlesNum: 60000
   MaxInfluenceRadius: 2
   TargetDensity: 1.6
   PressureMultiplier: 1500
@@ -578,6 +580,7 @@ MonoBehaviour:
   TolDeformation: 0
   Plasticity: 3
   Gravity: 5
+  ParticlesNum: 60000
   SpringCapacitySafety: 1000
   MaxChunkSearchSafety: 1
   Width: 150
@@ -585,7 +588,6 @@ MonoBehaviour:
   Depth: 50
   BorderPadding: 4
   FixedTimeStep: 1
-  RenderMarchingSquares: 0
   TimeStep: 0.04
   ProgramSpeed: 2
   SubTimeStepsNum: 3

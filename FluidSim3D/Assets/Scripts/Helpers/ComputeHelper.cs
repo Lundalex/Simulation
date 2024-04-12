@@ -127,7 +127,7 @@ public static class ComputeHelper
     }
 #endregion
 
-#region Get Append Buffer Count
+#region Get Buffer Data
 
     /// <summary>Get append buffer count</summary>
     /// <remarks>Uses an countBuffer</remarks>
@@ -149,6 +149,14 @@ public static class ComputeHelper
         countBuffer.GetData(countArr);
         int count = countArr[0];
         return count;
+	}
+
+    /// <summary>Get data from a compute buffer into a c# array</summary>
+	public static T[] GetStructuredBufferData<T>(ComputeBuffer buffer)
+	{
+        T[] temp = new T[buffer.count];
+        buffer.GetData(temp);
+        return temp;
 	}
 #endregion
 

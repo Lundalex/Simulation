@@ -4,7 +4,7 @@ using System;
 
 // Import utils from Resources.cs
 using Resources;
-using UnityEditor;
+
 public class Simulation : MonoBehaviour
 {
 #region Inspector
@@ -60,22 +60,22 @@ public class Simulation : MonoBehaviour
     [NonSerialized] public const int ipsShaderThreadSize = 512; // /1024
 #endregion
 
+#region Buffers
     // Bitonic mergesort
     public ComputeBuffer SpatialLookupBuffer;
     public ComputeBuffer StartIndicesBuffer;
-
     // Inter-particle springs
     public ComputeBuffer SpringCapacitiesBuffer;
     public ComputeBuffer SpringStartIndicesBuffer_dbA; // Result A
     public ComputeBuffer SpringStartIndicesBuffer_dbB; // Result B
     public ComputeBuffer SpringStartIndicesBuffer_dbC; // Support
     public ComputeBuffer ParticleSpringsCombinedBuffer; // [[Last frame springs], [New frame springs]]
-
     // Particle data
     public ComputeBuffer PDataBuffer;
     public ComputeBuffer PTypesBuffer;
+#endregion
 
-    // Constants
+#region Run Time Set Variables
     [NonSerialized] public int MaxInfluenceRadiusSqr;
     [NonSerialized] public float InvMaxInfluenceRadius;
     [NonSerialized] public int4 ChunksNum; // x,y,z,x*y
@@ -83,16 +83,17 @@ public class Simulation : MonoBehaviour
     [NonSerialized] public int ChunksNumAllNextPow2;
     [NonSerialized] public int ParticlesNum_NextPow2;
     [NonSerialized] public int ParticleSpringsCombinedHalfLength;
+#endregion
 
-    // Particle data
+#region Other
     private PData[] PData;
     [NonSerialized] public PType[] PTypes;
-
-    // Other
     private float DeltaTime;
     private bool FrameBufferCycle = true;
     private bool ProgramStarted = false;
+#endregion
 
+#region Simulation
     public void ScriptSetup ()
     {
         SetConstants();
@@ -471,4 +472,5 @@ public class Simulation : MonoBehaviour
             ParticleSpringsCombinedBuffer
         );
     }
+#endregion
 }

@@ -1,7 +1,4 @@
-// Ray marching
 #pragma kernel TraceRays // 0
-// Render noise textures
-#pragma kernel RenderNoiseTextures // 1
 
 #include "RendererResources.hlsl"
 
@@ -36,10 +33,6 @@ const float viewSpaceWidth;
 const float viewSpaceHeight;
 const float focalPlaneFactor;
 
-// Noise settings
-const uint3 NoiseResolution;
-const float NoisePixelSize;
-
 // Camera orientation
 const float3 WorldSpaceCameraPos;
 const float3 CameraRotation;
@@ -59,6 +52,7 @@ RWStructuredBuffer<Sphere> Spheres;
 
 RWStructuredBuffer<int2> SpatialLookup; // [NumObjects](objectIndex, ChunkKey)
 RWStructuredBuffer<int> StartIndices;
+RWStructuredBuffer<float> SafeDistances;
 
 // Shader output buffer
 RWTexture2D<float4> Result; // abc: rgb, d: opacity
@@ -131,8 +125,10 @@ ScanInfo Scan (Ray ray, inout int rngState)
     int chunkKey = GetChunkKey(chunk);
     uint startIndex = StartIndices[chunkKey];
 
+    float safeDst = SafeDistances[chunkKey];
+
     int Index = startIndex;
-    while (Index != -1 && chunkKey == SpatialLookup[Index].y)
+    while (chunkKey == SpatialLookup[Index].y)
     {
         uint objectIndex = SpatialLookup[Index].x;
 
@@ -271,40 +267,6 @@ void TraceRays (uint3 id : SV_DispatchThreadID)
     }
     combinedTraceInfo.incomingLight /= float(RaysPerPixel);
 
-    // Combine prev frame with current frame. Weight the contributions to result in an average over all frames
     float3 col = combinedTraceInfo.incomingLight;
-    // float3 colPrev = float3(Result[id.xy].x, Result[id.xy].y, Result[id.xy].z);
-
-    // float weight = 1.0 / (FrameCount + 1);
-
-    // float3 accumulatedCol = saturate(colPrev * (1 - weight) + col * weight);
-    // Result[id.xy] = float4(accumulatedCol.x, accumulatedCol.y, accumulatedCol.z, 0);
-
     Result[id.xy] = float4(col.x, col.y, col.z, 0);
-}
-
-[numthreads(TN_RM,TN_RM,1)]
-void RenderNoiseTextures (uint3 id : SV_DispatchThreadID)
-{
-    // Render NoiseA or NoiseB
-
-    float pS = NoisePixelSize; // pixelSize
-    pS = max(pS, 0.1);
-    uint2 scaledID = id.xy % pS + id.xy / pS;
-
-    uint2 idW = scaledID % NoiseResolution.xy;
-    if (idW.x == 0 && id.x != 0) { return; }
-
-    float result;
-    result = scaledID.x > NoiseResolution.x
-    ? NoiseB[uint3(idW.x % pS + idW.x / pS, idW.y % pS + idW.y / pS, (uint)FrameCount % NoiseResolution.z)]
-    : NoiseA[uint3(idW.x % pS + idW.x / pS, idW.y % pS + idW.y / pS, (uint)FrameCount % NoiseResolution.z)];
-
-    if (scaledID.x < 2*NoiseResolution.x && scaledID.y < NoiseResolution.y && result > 0.0)
-    {
-        Result[id.xy] = float4(result, result, result, 0);
-        return;
-    }
-    // Override ray marcher render?
-    // Result[id.xy] = float4(0, 0, 0, 0);
 }

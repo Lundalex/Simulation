@@ -7,6 +7,7 @@ public class TextureHelper : MonoBehaviour
     public ComputeShader tcShader;
     private readonly int ngShaderThreadSize = 8; // /~10
     private readonly int tbShaderThreadSize = 8; // /~10
+    private readonly int tbShaderThreadSize2 = 8; // /32
     [NonSerialized] public RenderTexture T_VectorMap;
     [NonSerialized] public RenderTexture T_PointsMap;
     private int3 LastResolution;
@@ -193,7 +194,7 @@ public class TextureHelper : MonoBehaviour
 
 #region Modify Textures (3D)
 
-    /// <summary>Assigns a SHALLOW COPY (no reference) of a 3D render texture</summary>
+    /// <summary>Assigns a shallow copy (no reference) of a 3D render texture, to another 3D render texture</summary>
     public void Copy (ref RenderTexture texture, RenderTexture textureA, int3 resolution)
     {
         tcShader.SetTexture(0, "Texture_A", textureA);
@@ -309,6 +310,17 @@ public class TextureHelper : MonoBehaviour
 
             ComputeHelper.DispatchKernel(tcShader, "BoxBlur_3D_F1", resolution, tbShaderThreadSize);
         }
+    }
+#endregion
+
+#region Modify Textures (2D)
+    /// <summary>Assigns a shallow copy (no reference) of a 2D render texture, to another 2D render texture</summary>
+    public void Copy (ref RenderTexture texture, RenderTexture textureA, int2 resolution)
+    {
+        tcShader.SetTexture(10, "Texture_A_2D", textureA);
+        tcShader.SetTexture(10, "Texture_Output_2D", texture);
+
+        ComputeHelper.DispatchKernel (tcShader, "Copy_2D_F3", resolution, tbShaderThreadSize2);
     }
 #endregion
 

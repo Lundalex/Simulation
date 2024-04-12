@@ -1,8 +1,9 @@
 #pragma kernel CalcSphereChunkKeys // 0
 #pragma kernel CalcTriChunkKeys // 1
-#pragma kernel PopulateSpatialLookup // 2
-#pragma kernel SortIteration // 3
-#pragma kernel PopulateStartIndices // 4
+#pragma kernel PrepStartIndices // 2
+#pragma kernel PopulateSpatialLookup // 3
+#pragma kernel SortIteration // 4
+#pragma kernel PopulateStartIndices // 5
 
 #include "../Renderer/RendererResources.hlsl"
 
@@ -120,7 +121,7 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
     ApplyChunkGridOffset(maxBounds);
 
     // Padding for occupied chunks insert
-    // A high value will decrease the risk of visual artifacts BUT tanks frame rate
+    // A high padding will decrease the risk of visual artifacts but is bad for performance
     float boxPadding = 0.3;
 
     int3 minChunk = int3((minBounds + parentPos - boxPadding) / CellSize);
@@ -140,6 +141,12 @@ void CalcTriChunkKeys (uint3 id : SV_DispatchThreadID)
             }
         }
     }
+}
+
+[numthreads(TN_SS_R,1,1)]
+void PrepStartIndices (uint3 id : SV_DispatchThreadID)
+{
+    StartIndices[id.x] = 0;
 }
 
 [numthreads(TN_SS_R,1,1)]
