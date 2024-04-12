@@ -7,12 +7,12 @@ using Resources;
 
 public class Renderer : MonoBehaviour
 {
-    [Header("Render settings")]
-    public FluidRenderStyle fluidRenderStyle;
+#region Inspector
+    [Header("Screen")]
     public float fieldOfView = 70.0f;
     public int2 Resolution = new(1920, 1080);
 
-    [Header("RM settings")]
+    [Header("Ray Marcher")]
     public int MaxStepCount = 60;
     public int RaysPerPixel = 2;
     public float HitThreshold = 0.01f;
@@ -24,14 +24,15 @@ public class Renderer : MonoBehaviour
     public int FrameCount = 0;
     [Range(1, 1000)] public int ChunksPerObject = 50;
 
-    [Header("Scene settings")]
+    [Header("Scene")]
     public float3 MinWorldBounds = new(-40.0f, -40.0f, -40.0f);
     public float3 MaxWorldBounds = new(40.0f, 40.0f, 40.0f);
     public float CellSize = 1.0f;
     public float CellSizeMS = 1.0f;
     public float ThresholdMS = 0.5f;
 
-    [Header("Scene objects")]
+    [Header("Objects")]
+    public FluidRenderStyle fluidRenderStyle;
     public float3 OBJ_Pos;
     public float3 OBJ_Rot;
     public float4[] SpheresInput; // xyz: pos; w: radii
@@ -52,17 +53,17 @@ public class Renderer : MonoBehaviour
     public Simulation sim;
     public ProgramManager manager;
     public FileImporter fileImporter;
+#endregion
 
-    // Shader settings
+#region Shader Settings
     private const int rmShaderThreadSize = 8; // /32
     private const int pcShaderThreadSize = 512; // / 1024
     private const int ssShaderThreadSize = 512; // / 1024
     private const int msShaderThreadSize = 8; // /~10
     private const int msShaderThreadSize2 = 512; //1024
+#endregion
 
-    // Non-inpector-accessible variables
-
-    // Scene objects
+#region Scene Objects
     public TriObject[] TriObjects;
     public Tri[] Tris;
     public Sphere[] Spheres;
@@ -71,8 +72,9 @@ public class Renderer : MonoBehaviour
     public ComputeBuffer B_Tris;
     public ComputeBuffer B_Spheres;
     public ComputeBuffer B_Materials;
+#endregion
 
-    // Spatial sort
+#region Spatial Sort
     public ComputeBuffer B_SpatialLookup;
     public ComputeBuffer B_StartIndices;
     public ComputeBuffer AC_OccupiedChunks;
@@ -82,8 +84,9 @@ public class Renderer : MonoBehaviour
     private FluidRenderStyle lastFluidRenderStyle;
     private bool ProgramStarted = false;
     private bool SettingsChanged = true;
+#endregion
 
-    // Constants calculated at start
+#region Run Time Set Variables
     [NonSerialized] public int NumObjects;
     [NonSerialized] public int ReservedNumSpheres;
     [NonSerialized] public int DynamicNumSpheres;
@@ -97,7 +100,9 @@ public class Renderer : MonoBehaviour
     [NonSerialized] public int3 NumCellsMS;
     [NonSerialized] public int NumChunksAll;
     [NonSerialized] public float3 ChunkGridOffset;
+#endregion
 
+#region Renderer
     public void ScriptSetup()
     {
         SetupCamera();
@@ -427,23 +432,6 @@ public class Renderer : MonoBehaviour
         }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     public void RunSSShader()
     {
         // Fill OccupiedChunks
@@ -504,4 +492,5 @@ public class Renderer : MonoBehaviour
     {
         ComputeHelper.Release(B_TriObjects, B_Tris, B_Spheres, B_Materials, B_SpatialLookup, B_StartIndices, AC_OccupiedChunks, AC_SurfaceCells, AC_FluidTriMesh, CB_A);
     }
+#endregion
 }

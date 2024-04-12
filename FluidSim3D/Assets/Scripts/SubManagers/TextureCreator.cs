@@ -6,11 +6,11 @@ using Resources;
 
 public class TextureCreator : MonoBehaviour
 {
+#region Inpsector
     [Header("Noise settings")]
     public int3 NoiseResolution = new(512, 512, 256);
     public int NoiseCellSize = 128;
     public float LerpFactor = 0.15f; // TEMP
-    public int inputB = 3; // TEMP
     public float NoisePixelSize = 0.7f;
     public bool RenderNoiseTextures = true;
 
@@ -18,7 +18,9 @@ public class TextureCreator : MonoBehaviour
     public ComputeShader ngShader;
     public ComputeShader rmShader;
     public TextureHelper textureHelper;
+#endregion
 
+#region Texture Creator
     public void ScriptSetup ()
     {
         textureHelper.UpdateScriptTextures(NoiseResolution, 1);
@@ -78,4 +80,5 @@ public class TextureCreator : MonoBehaviour
         rmShader.SetTexture(1, "NoiseA", voronoi0); // Final texture stored in voronoi0
         rmShader.SetTexture(1, "NoiseB", voronoi0); // Final texture stored in voronoi0
     }
+#endregion
 }

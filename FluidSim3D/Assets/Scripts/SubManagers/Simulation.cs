@@ -7,8 +7,8 @@ using Resources;
 using UnityEditor;
 public class Simulation : MonoBehaviour
 {
-    [Header("Simulation settings")]
-    public int ParticlesNum = 30000; 
+#region Inspector
+    [Header("Fluid")]
     public int MaxInfluenceRadius = 2;
     public float TargetDensity = 2.0f;
     public float PressureMultiplier = 3000;
@@ -22,23 +22,25 @@ public class Simulation : MonoBehaviour
     public float TolDeformation = 0.0f;
     public float Plasticity = 3.0f;
     public float Gravity = 5.0f;
+
+    [Header("Engine / Scene")]
+    public int ParticlesNum = 30000;
     public float SpringCapacitySafety;
     [Range(0, 3)] public int MaxChunkSearchSafety = 1;
 
-    [Header("Boundrary settings")]
+    [Header("Boundrary")]
     public int Width = 300;
     public int Height = 200;
     public int Depth = 50;
     public float BorderPadding = 4.0f;
 
-    [Header("Render settings")]
+    [Header("Time / Speed")]
     public bool FixedTimeStep = true;
-    public bool RenderMarchingSquares = false;
     public float TimeStep = 0.02f;
     public float ProgramSpeed = 2.0f;
     public int SubTimeStepsNum = 3;
 
-    [Header("Interaction settings")]
+    [Header("Mouse Interaction")]
     public float MaxInteractionRadius = 40.0f;
     public float InteractionAttractionPower = 3.5f;
     public float InteractionFountainPower = 0.0f;
@@ -49,14 +51,14 @@ public class Simulation : MonoBehaviour
     public ComputeShader pSimShader;
     public ComputeShader ssShader;
     public ComputeShader ipsShader;
+#endregion
 
-    // Non-inpector-accessible variables
-
-    // ThreadSize settings for compute shaders
+#region Shader Settings
     [NonSerialized] public const int renderShaderThreadSize = 32; // /32, AxA thread groups
     [NonSerialized] public const int pSimShaderThreadSize = 256; // /1024
     [NonSerialized] public const int ssShaderThreadSize = 512; // /1024
     [NonSerialized] public const int ipsShaderThreadSize = 512; // /1024
+#endregion
 
     // Bitonic mergesort
     public ComputeBuffer SpatialLookupBuffer;
