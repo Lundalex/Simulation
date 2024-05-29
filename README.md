@@ -17,6 +17,7 @@ c#-koden använder vissa hjälpfunktioner - dessa ligger under FluidSim3D/Assets
 ### Demo 1 ###
  - Beskrivning: Två rigid body-objekt och en vätska med låg viskositet vid start. Sedan ökas vätskans viskositet. Sist minskas platisiteten vilket gör vätskan svårrörlig. röd färg <=> hög fart.
  - Tekniska detaljer: 2D, 30000partiklar, ~620FPS
+[Watch the video](https://link-to-your-video)(https://drive.google.com/open?id=1kJEpSKBCAE8BCXwzlHZaufPYNMzmQJNb&usp=drive_copy)
 
 ### Demo 2 ###
  - Beskrivning: Vatten(60ºC) som kokas av en varm vätska(500ºC), vilket bildar bubblor av vattenånga. Blå färg <=> vatten, gul färg <=> vattenånga, röd färg <=> varm vätska.
