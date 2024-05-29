@@ -15,7 +15,7 @@ c#-koden använder vissa hjälpfunktioner - dessa ligger under FluidSim3D/Assets
 (Inspelningarna är tagna i realtid med ett nvidia rtx 4070ti grafikkort).
 
 ### Demo 1 ###
-Beskrivning: Två rigid body-objekt och en vätska med låg viskositet. Sedan ökas vätskans viskositet. Sist minskas platisiteten vilket gör vätskan svårrörlig.
+Beskrivning: Två rigid body-objekt och en vätska med låg viskositet vid start. Sedan ökas vätskans viskositet. Sist minskas platisiteten vilket gör vätskan svårrörlig.
 Tekniska detaljer: 2D, 60000partiklar, ~620FPS
 
 ### Demo 2 ###
