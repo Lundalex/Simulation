@@ -25,7 +25,7 @@ c#-koden använder vissa hjälpfunktioner - dessa ligger under FluidSim3D/Assets
  - [Demofilm 2](https://drive.google.com/open?id=10q3Yc_0WcnS60n8MpgOscvrKPXH2b1B6&usp=drive_copy)
 
 ### Demo 3 ###
- - Beskrivning: Vatten som påverkas av användaren. Ena videon rendreras varje partikel för sig, den andra använder ett mesh genererat av en marching squares-shader.
+ - Beskrivning: Vatten som påverkas av användaren. I ena videon rendreras varje partikel för sig, medan den andra använder en marching squares-shader för att generera ett dynamiskt mesh.
  - Tekniska detaljer: 3D, 60000partiklar, ~60FPS
  - [Demofilm 3A](https://drive.google.com/open?id=1HQPuICQ-Gdsc6tYjvrLQtLPbzP05ijn6&usp=drive_copy)
  - [Demofilm 3B](https://drive.google.com/open?id=1ZzZZ368qbA7gvDlgqISFiuA0Rw0ovq9m&usp=drive_copy)
