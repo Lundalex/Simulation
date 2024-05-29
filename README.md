@@ -26,6 +26,6 @@ c#-koden använder vissa hjälpfunktioner - dessa ligger under FluidSim3D/Assets
 
 ### Demo 3 ###
  - Beskrivning: Vatten som påverkas av användaren. Ena videon rendreras varje partikel för sig, den andra använder ett mesh genererat av en marching squares-shader.
- - Tekniska detaljer: 2D, 60000partiklar, ~55FPS
+ - Tekniska detaljer: 2D, 60000partiklar, ~60FPS
  - [Demofilm 3A](https://drive.google.com/open?id=1HQPuICQ-Gdsc6tYjvrLQtLPbzP05ijn6&usp=drive_copy)
  - [Demofilm 3B](https://drive.google.com/open?id=1ZzZZ368qbA7gvDlgqISFiuA0Rw0ovq9m&usp=drive_copy)
