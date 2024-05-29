@@ -7,9 +7,9 @@ Programmet som helhet använder ett paralleliserat neighboor-search-system för 
 Det som simuleras är främst viskositet, elastisitet, plastisitet, gravitation, "klibbighet", temperatursöverföring, fasövergångar, och interaktioner (muspekare).
 
 ## Projektstruktur och kod ##
-All shaderkod ligger under: <u>FluidSim3D/Assets/Scripts/Compute shaders</u>.
-All tillhörande c#-managerkod ligger under: <u>FluidSim3D/Assets/Scripts/SubManagers</u>.
-c#-koden använder vissa hjälpfunktioner - dessa ligger under: <u>FluidSim3D/Assets/Scripts/Helpers</u>.
+All shaderkod ligger under FluidSim3D/Assets/Scripts/Compute shaders.
+All tillhörande c#-managerkod ligger under FluidSim3D/Assets/Scripts/SubManagers.
+c#-koden använder vissa hjälpfunktioner - dessa ligger under FluidSim3D/Assets/Scripts/Helpers.
 
 ## Demofilmer med beskrivningar ##
 (Inspelningarna är tagna i realtid med ett nvidia rtx 4070ti grafikkort).
