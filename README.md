@@ -14,14 +14,14 @@ c#-koden använder vissa hjälpfunktioner - dessa ligger under: FluidSim3D/Asset
 ## Demofilmer med beskrivningar ##
 (Inspelningarna är tagna i realtid med ett nvidia rtx 4070ti grafikkort)
 
-## Demo 1 ##
+### Demo 1 ###
 Beskrivning: Två rigid body-objekt och en vätska med låg viskositet. Sedan ökas vätskans viskositet. Sist minskas platisiteten vilket gör vätskan svårrörlig.
 Tekniska detaljer: 2D, 60000partiklar, ~620FPS
 
-## Demo 2 ##
+### Demo 2 ###
 Beskrivning: Vatten som kokas av "magma", och bildar bubblor av vattenånga
 Tekniska detaljer: 2D, 60000partiklar, ~620FPS
 
-## Demo 3 ##
+### Demo 3 ###
 Beskrivning: Vatten som påverkas av användaren. Först rendreras varje partikel för sig. Sedan aktiveras en ray-marcher-shader för att rendrera ett fullständigt mesh.
 Tekniska detaljer: 2D, 60000partiklar, ~60FPS
