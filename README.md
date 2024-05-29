@@ -15,13 +15,13 @@ c#-koden använder vissa hjälpfunktioner - dessa ligger under FluidSim3D/Assets
 (Inspelningarna är tagna i realtid med ett nvidia rtx 4070ti grafikkort).
 
 ### Demo 1 ###
-Beskrivning: Två rigid body-objekt och en vätska med låg viskositet vid start. Sedan ökas vätskans viskositet. Sist minskas platisiteten vilket gör vätskan svårrörlig. röd färg <=> hög fart
-Tekniska detaljer: 2D, 30000partiklar, ~620FPS
+ - Beskrivning: Två rigid body-objekt och en vätska med låg viskositet vid start. Sedan ökas vätskans viskositet. Sist minskas platisiteten vilket gör vätskan svårrörlig. röd färg <=> hög fart.
+ - Tekniska detaljer: 2D, 30000partiklar, ~620FPS
 
 ### Demo 2 ###
-Beskrivning: Vatten(60ºC) som kokas av en varm vätska(500ºC), vilket bildar bubblor av vattenånga. Blå färg <=> vatten, gul färg <=> vattenånga, röd färg <=> varm vätska
-Tekniska detaljer: 2D, 60000partiklar, ~390FPS
+ - Beskrivning: Vatten(60ºC) som kokas av en varm vätska(500ºC), vilket bildar bubblor av vattenånga. Blå färg <=> vatten, gul färg <=> vattenånga, röd färg <=> varm vätska.
+ - Tekniska detaljer: 2D, 60000partiklar, ~390FPS
 
 ### Demo 3 ###
-Beskrivning: Vatten som påverkas av användaren. Ena videon rendreras varje partikel för sig, den andra använder ett mesh genererat av en marching squares-shader.
-Tekniska detaljer: 2D, 60000partiklar, ~55FPS
+ - Beskrivning: Vatten som påverkas av användaren. Ena videon rendreras varje partikel för sig, den andra använder ett mesh genererat av en marching squares-shader.
+ - Tekniska detaljer: 2D, 60000partiklar, ~55FPS
