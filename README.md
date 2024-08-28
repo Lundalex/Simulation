@@ -3,8 +3,8 @@
 ## Projektsbeskrivning ##
 En interaktiv SPH 3D realtidssimulering av vätskor, gaser, och softbody-objekt.
 Rendreringen sker med en ray-marcher-shader, medan en marching squares-shader skapar det rendrerade mesh:et.
-Programmet som helhet använder ett paralleliserat neighboor-search-system för att kunna sköta beräkningar i parallel på GPUn med hög prestanda. Även rendreringen sker med en parallel shader-kod (liknande en pixel-shader).
-Det som simuleras är främst viskositet, elastisitet, plastisitet, ytspänning, gravitation, "klibbighet", temperatursöverföring, fasövergångar, och interaktioner (muspekare).
+Programmet som helhet använder ett paralleliserat neighboor-search-system för att sköta beräkningar i parallel på GPUn. Även rendreringen sker med en shader-kod (liknande en pixel-shader).
+Det som simuleras är bl.a viskositet, elastisitet, plastisitet, ytspänning, gravitation, "klibbighet", temperatursöverföring, fasövergångar, och interaktioner (muspekare).
 
 ## Projektstruktur och kod ##
 All shaderkod ligger under FluidSim3D/Assets/Scripts/Compute shaders.
